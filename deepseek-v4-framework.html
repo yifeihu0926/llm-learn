@@ -16,8 +16,10 @@
 [data-v41-motion] .v41-motion-status{min-height:3.1em;margin:10px 0 6px;font-size:.95rem;line-height:1.65}
 [data-v41-motion] .v41-motion-caption{margin:0;line-height:1.6}
 @media(max-width:600px){[data-v41-motion]{padding:12px}[data-v41-motion] .v41-motion-controls label{flex-basis:100%}}
-.equation{overflow:auto;margin:24px 0;padding:14px 0;color:#dce4ec}.equation mjx-container{display:block;margin:0!important}.inline-math mjx-container{display:inline-block;font-size:105%;vertical-align:middle}</style></head><body><header class="top"><span class="brand">DEEPSEEK / ARCHITECTURE NOTES</span><span class="right">2026.10 · V4 FLASH / PRO · V4.1 FLASH</span></header><div class="layout"><nav aria-label="章节导航"><p class="label">CONTENTS / 目录</p><a href="#section-0">从整模型到特殊 Block</a><a href="#section-7">V4：张量数据流与核心运算</a><a href="#section-17">V4.1：跨层共享与 CED</a><a href="#section-24">Engram：条件记忆</a><a href="#section-27">DSpark：并行草稿与顺序采样</a><a href="#section-30">视觉输入与编码协议</a><a href="#section-34">缓存、参数与存储预算</a><a href="#section-40">参考实现与推理框架</a><a href="#section-47">vLLM 与 SGLang 的服务请求路径</a><a href="#section-52">预训练与后训练</a><a href="#section-58">完整前向算子：从输入到输出</a><a href="#section-71">资料与源码入口</a></nav><main><section class="hero"><div class="kicker">ARCHITECTURE · MEMORY · INFERENCE</div><h1>DeepSeek V4<br><span>&amp;</span> V4.1</h1><h2 class="subtitle" style="border:0;padding:0;margin:22px 0 13px">架构、数据流与推理实现</h2><p>从四路残差到跨层记忆，从压缩槽到并行草稿。把模型机制放在同一条可追踪的数据流中理解。</p><div class="legend"><span><i style="background:#58c4dd"></i>输入 / 主干特征</span><span><i style="background:#b18ac7"></i>记忆 / 缓存</span><span><i style="background:#f0ac5f"></i>选择 / 权重</span><span><i style="background:#5cd0b3"></i>共享状态</span><span><i style="background:#83c167"></i>输出</span></div></section><p>版本：2026-10-10。涵盖 V4 Flash、V4 Pro 与 V4.1 Flash。框架分析对应 vLLM <code>c91dccc08044b1269f351ceec13070fe8f075e10</code>、SGLang <code>bb9a820f09f97480bfc6d07564fb2b691b8857a3</code> 和 Transformers 5.18.0。</p>
-<p>独立阅读：<a href="deepseek-v4-flash.html">V4 Flash 算子解析</a> · <a href="deepseek-v4-pro.html">V4 Pro 算子解析</a> · <a href="deepseek-v41-flash.html">V4.1 Flash 算子解析</a>。</p>
+.equation{overflow:auto;margin:24px 0;padding:14px 0;color:#dce4ec}.equation mjx-container{display:block;margin:0!important}.inline-math mjx-container{display:inline-block;font-size:105%;vertical-align:middle}
+.cp-demo{margin:28px 0;padding:24px;background:#08121c;border:1px solid #3d6978;border-radius:12px;color:#dae6ef}.cp-demo h4{font:600 23px system-ui;margin:12px 0}.cp-tag{color:#67dcca;font:12px system-ui;letter-spacing:2px}.cp-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.cp-controls label{font:13px system-ui}.cp-controls button,.cp-controls select{background:#172b3b;color:#e8f3fc;border:1px solid #4b7186;border-radius:5px;padding:8px;font:13px system-ui;cursor:pointer}.cp-controls :disabled{opacity:.45;cursor:default}.cp-progress{display:flex;align-items:center;gap:12px;margin:20px 0;font:13px system-ui}.cp-progress input{flex:1;accent-color:#67dcca}.cp-stages{display:flex;gap:6px;flex-wrap:wrap}.cp-stages span{background:#192b3c;padding:6px 8px;border-radius:4px;font:12px system-ui}.cp-stages span.active{background:#67dcca;color:#07151d}.cp-view{overflow:auto;margin:15px 0}.cp-view svg{width:100%;min-width:760px;height:auto;font-family:system-ui,"PingFang SC",sans-serif}.cp-view line{stroke-dasharray:8 6;animation:cp-flow 1.2s linear infinite}.cp-view rect{animation:cp-appear .35s ease-out}@keyframes cp-flow{to{stroke-dashoffset:-28}}@keyframes cp-appear{from{opacity:.3}to{opacity:1}}.cp-table{overflow:auto}.cp-demo .cp-table table{width:100%;margin:0;font:13px system-ui}.cp-demo .cp-table th,.cp-demo .cp-table td{background:transparent!important;color:#d6e5ef;border-bottom:1px solid #31495d;padding:9px;white-space:nowrap}.cp-demo .cp-table th{color:#8fcee7}.cp-caption{border-left:3px solid #67dcca;background:#102b2d;padding:14px;font:15px/1.8 system-ui}.cp-note{color:#9aafc2;font:12px/1.8 system-ui}@media(max-width:600px){.cp-demo{padding:14px}.cp-demo h4{font-size:20px}}@media(prefers-reduced-motion:reduce){.cp-view line,.cp-view rect{animation:none}}@media print{.cp-controls,.cp-progress{display:none}}
+</style></head><body><header class="top"><span class="brand">DEEPSEEK / ARCHITECTURE NOTES</span><span class="right">2026.10 · V4 FLASH / PRO · V4.1 FLASH</span></header><div class="layout"><nav aria-label="章节导航"><p class="label">CONTENTS / 目录</p><a href="#section-0">从整模型到特殊 Block</a><a href="#section-7">V4：张量数据流与核心运算</a><a href="#section-17">V4.1：跨层共享与 CED</a><a href="#section-24">Engram：条件记忆</a><a href="#section-27">DSpark：并行草稿与顺序采样</a><a href="#section-30">视觉输入与编码协议</a><a href="#section-34">缓存、参数与存储预算</a><a href="#section-40">参考实现与推理框架</a><a href="#section-47">vLLM 与 SGLang 的服务请求路径</a><a href="#section-52">预训练与后训练</a><a href="#section-58">完整前向算子：从输入到输出</a><a href="#section-71">资料与源码入口</a></nav><main><section class="hero"><div class="kicker">ARCHITECTURE · MEMORY · INFERENCE</div><h1>DeepSeek V4<br><span>&amp;</span> V4.1</h1><h2 class="subtitle" style="border:0;padding:0;margin:22px 0 13px">架构、数据流与推理实现</h2><p>从四路残差到跨层记忆，从压缩槽到并行草稿。把模型机制放在同一条可追踪的数据流中理解。</p><div class="legend"><span><i style="background:#58c4dd"></i>输入 / 主干特征</span><span><i style="background:#b18ac7"></i>记忆 / 缓存</span><span><i style="background:#f0ac5f"></i>选择 / 权重</span><span><i style="background:#5cd0b3"></i>共享状态</span><span><i style="background:#83c167"></i>输出</span></div></section><p>版本：2026-10-10。涵盖 V4 Flash、V4 Pro 与 V4.1 Flash。框架分析对应 vLLM <code>c91dccc08044b1269f351ceec13070fe8f075e10</code>、SGLang <code>bb9a820f09f97480bfc6d07564fb2b691b8857a3</code> 和 Transformers 5.18.0。</p>
+<p>独立阅读：<span>V4 Flash 算子解析</span> · <span>V4 Pro 算子解析</span> · <span>V4.1 Flash 算子解析</span>。</p>
 <h2 id="section-0">1. 从整模型到特殊 Block</h2>
 <h3 id="section-1">1.1 整模型：先建立输入到输出的路径</h3>
 <p>三个模型的主路径都是 <strong>输入表示 → 多层 Transformer 主干 → 最终归一化与词表 Head → logits / 采样</strong>。主干内部通过 mHC 保存四路残差，每层依次执行注意力和 MoE。这里的“模型层”是整个 Block，包含两个子层；后面讨论的特殊类别主要改变其中的注意力分支。</p>
@@ -389,6 +391,21 @@ A_t = L_t ∪ G_t
 </table>
 <p>上述数量是主注意力读取预算，不包括 Indexer 的扫描/打分、压缩器计算、写缓存和投影成本。CSA 的主注意力全局读取有 top-k 上限，但 Indexer 仍需选择候选；HCA 的摘要更少、粒度更粗，不能仅凭表中记录数断言它的质量或整层运行速度更优。</p>
 <h3 id="section-12">2.5 压缩器：ratio 4 与 ratio 128</h3>
+<section class="cp-demo" id="compressor-animation" aria-label="CSA与HCA压缩器动画">
+<div class="cp-tag">V4 FLASH · COMPRESSOR</div><h4>压缩器内部：token、特征维与 gate 的完整路径</h4>
+<p>先选择 CSA 或 HCA。蓝色表示内容，绿色表示 gate；所有形状写成 [token 数, 特征维数]，省略 batch。</p>
+<div class="cp-controls">
+<label>压缩模式 <select data-cp="mode"><option value="csa">CSA · ratio 4 · 重叠</option><option value="hca">HCA · ratio 128 · 非重叠</option></select></label>
+<label>压缩对象 <select data-cp="target"><option value="main">主 KV · 512维</option><option value="index">Indexer K · 128维（仅CSA）</option></select></label>
+<label>观察特征 <select data-cp="dim"><option value="0">c=0</option><option value="1">c=1</option></select></label>
+<button type="button" data-cp="play" aria-pressed="false">播放</button><button type="button" data-cp="prev">上一步</button><button type="button" data-cp="next">下一步</button><button type="button" data-cp="reset">重置</button>
+</div>
+<label class="cp-progress">步骤 <input type="range" min="0" max="8" value="0" data-cp="step" aria-label="压缩器动画步骤"><output data-cp="position">1 / 9</output></label>
+<div class="cp-stages" data-cp="stages"></div><div class="cp-view"><svg data-cp="svg" viewBox="0 0 960 470" role="img" aria-label="带token轴和特征维度的压缩器计算流程"></svg></div>
+<div class="cp-table" data-cp="table"></div><p class="cp-caption" data-cp="caption" aria-live="polite"></p>
+<p class="cp-note">本动画使用 V4 Flash 的输入宽度 d=4096。CSA 主压缩器 D=512，索引压缩器 D=128；HCA 主压缩器 D=512。HCA 数值示例实际计算全部128行，仅展示头尾8行；CSA数值示例计算8份重叠贡献。展示的两个特征维、投影值和gate均为教学数据；其余维及归一化、位置编码、量化未做模型实测。</p>
+</section>
+
 <p>压缩器对隐藏态做内容投影和 gate 投影，以 gate 权重聚合一个压缩块，随后归一化、施加压缩位置编码并量化。块内 learned positional term 参与门控，不能将其简化成固定平均池化。</p>
 <table>
 <thead>
@@ -901,7 +918,7 @@ SWA：40 × 128 × 512 × 2 = 5 MiB/序列
 <p>本地 NVIDIA DeepGEMM 路径调用 <code>prepare_megamoe_inputs</code> 和 <code>deep_gemm.fp8_fp4_mega_moe</code>；框架包装还包含 FlashInfer 的 <code>stage_inputs/compute</code> 路径。逻辑专家 ID 可能经过负载平衡映射成物理副本 ID，padding token 也需在路由准备中处理；这些是运行时组织，不改变“按当前 token 选专家再合并”的模型含义。</p>
 <p>共享专家是否融合，取决于后端 API、权重/scale 布局、并行方式和开关。未融合时，框架计算 <code>shared_output</code> 并加回路由专家输出。不能把“MegaMoE”解释成所有专家都被激活，或把共享专家漏掉。</p>
 <p>该 NVIDIA 模型路径要求 expert parallel，并检查 FP4 路由专家、sqrtsoftplus 与选中权重归一化等条件。它们是本文固定框架快照的后端约束；不同平台或其他后端可以采用不同执行路径，普通 MoE 数学结构仍成立。这里说明源码路径与约束，实际 GPU 性能需对应设备和运行配置测量。</p>
-<p>源码：<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1038">DeepseekV4MoE.forward</a>、<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L682">DeepseekV4MegaMoEExperts.forward</a>、<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/fi_moe.py#L314">FlashInfer wrapper</a>。</p>
+<p>源码：<span>DeepseekV4MoE.forward</span>、<span>DeepseekV4MegaMoEExperts.forward</span>、<span>FlashInfer wrapper</span>。</p>
 <h2 id="section-47">9. vLLM 与 SGLang 的服务请求路径</h2>
 <h3 id="section-48">9.1 vLLM V1</h3>
 <pre><code class="language-text">API launcher / OpenAI router
@@ -1317,51 +1334,51 @@ next_id = argmax_v(p_v / e_v)
 <tbody>
 <tr>
 <td>V4 Linear / RMSNorm / RoPE / Hadamard</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py#L108">flash_model.py</a></td>
+<td><span>flash_model.py</span></td>
 </tr>
 <tr>
 <td>V4 Compressor / Indexer / Attention</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py#L279">flash_model.py</a></td>
+<td><span>flash_model.py</span></td>
 </tr>
 <tr>
 <td>V4 Gate / Expert / MoE / mHC / Head / MTP</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py#L546">flash_model.py</a></td>
+<td><span>flash_model.py</span></td>
 </tr>
 <tr>
 <td>V4 quant / GEMM / sparse attention / Sinkhorn kernels</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/kernel.py#L105">flash_kernel.py</a></td>
+<td><span>flash_kernel.py</span></td>
 </tr>
 <tr>
 <td>V4.1 Linear / Engram / positions / Attention</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L181">inference_model.py</a></td>
+<td><span>inference_model.py</span></td>
 </tr>
 <tr>
 <td>V4.1 Indexer 与两级 selector</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L485">inference_model.py</a></td>
+<td><span>inference_model.py</span></td>
 </tr>
 <tr>
 <td>V4.1 Gate / Expert / mHC / DSpark / heads / sample</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L788">inference_model.py</a></td>
+<td><span>inference_model.py</span></td>
 </tr>
 <tr>
 <td>V4.1 核心 quant / GEMM / sparse attention / Sinkhorn kernels</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py#L98">inference_kernel.py</a></td>
+<td><span>inference_kernel.py</span></td>
 </tr>
 <tr>
 <td>Engram token map / prime / hash / history</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/engram.py#L17">inference_engram.py</a></td>
+<td><span>inference_engram.py</span></td>
 </tr>
 <tr>
 <td>Patch / 2D RoPE / ViT / Aligner</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/vision.py#L9">inference_vision.py</a></td>
+<td><span>inference_vision.py</span></td>
 </tr>
 <tr>
 <td>Image resize / pad / normalize / patches / token types</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/image_processor.py#L101">inference_image_processor.py</a></td>
+<td><span>inference_image_processor.py</span></td>
 </tr>
 <tr>
 <td>普通生成与 prompt/EOS 控制</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/generate.py#L54">inference_generate.py</a>、<a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/generate.py#L19">flash_generate.py</a></td>
+<td><span>inference_generate.py</span>、<span>flash_generate.py</span></td>
 </tr>
 </tbody>
 </table>
@@ -1383,43 +1400,43 @@ next_id = argmax_v(p_v / e_v)
 <tbody>
 <tr>
 <td>V4 Flash 配置</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/config.json">Flash_inference_config.json</a></td>
+<td><span>Flash_inference_config.json</span></td>
 </tr>
 <tr>
 <td>V4 Pro 配置</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/b5968e9190ef611bbf34a7229255be88a0e937c1/inference/config.json">Pro_inference_config.json</a></td>
+<td><span>Pro_inference_config.json</span></td>
 </tr>
 <tr>
 <td>V4 主模型、压缩器、Indexer、MoE、MTP</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py">flash_model.py</a></td>
+<td><span>flash_model.py</span></td>
 </tr>
 <tr>
 <td>V4 参考 kernel</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/kernel.py">flash_kernel.py</a></td>
+<td><span>flash_kernel.py</span></td>
 </tr>
 <tr>
 <td>V4.1 推理配置</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/config.json">inference_config.json</a></td>
+<td><span>inference_config.json</span></td>
 </tr>
 <tr>
 <td>V4.1 主模型、共享状态与 DSpark</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py">inference_model.py</a></td>
+<td><span>inference_model.py</span></td>
 </tr>
 <tr>
 <td>V4.1 Engram</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/engram.py">inference_engram.py</a></td>
+<td><span>inference_engram.py</span></td>
 </tr>
 <tr>
 <td>V4.1 视觉塔</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/vision.py">inference_vision.py</a></td>
+<td><span>inference_vision.py</span></td>
 </tr>
 <tr>
 <td>V4.1 图像处理</td>
-<td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/image_processor.py">inference_image_processor.py</a></td>
+<td><span>inference_image_processor.py</span></td>
 </tr>
 <tr>
 <td>Transformers V4</td>
-<td><a href="https://github.com/huggingface/transformers/blob/v5.18.0/src/transformers/models/deepseek_v4/modeling_deepseek_v4.py">modeling_deepseek_v4.py</a></td>
+<td><span>modeling_deepseek_v4.py</span></td>
 </tr>
 </tbody>
 </table>
@@ -1450,7 +1467,7 @@ next_id = argmax_v(p_v / e_v)
 </tr>
 </tbody>
 </table>
-<p>本地 vLLM 源码位于 <code>vLLM 的固定源码快照</code>；SGLang 位于 <code>SGLang 的固定源码快照</code>。配置、参数、缓存与调用路径按这些快照解释；训练设置和质量结论采用官方报告口径。完整模型质量、GPU kernel 数值、吞吐及多卡内存需对应实际权重与运行环境测量。</p>
+<p>本地 vLLM 源码位于 <code>deepseek-v4-analysis/repos/vllm</code>；SGLang 位于 <code>deepseek-v4-analysis/repos/sglang</code>。配置、参数、缓存与调用路径按这些快照解释；训练设置和质量结论采用官方报告口径。完整模型质量、GPU kernel 数值、吞吐及多卡内存需对应实际权重与运行环境测量。</p>
 <footer>DeepSeek V4 / V4.1 · 16 幅机制图 + 3 组交互动画 · 所有图示与全文均内嵌，可离线阅读。图形采用浏览器 SVG 实现。</footer></main></div><dialog id="zoom"><button class="close">关闭 ×</button><div class="zoom-body"></div></dialog><script>document.querySelectorAll('table').forEach(t=>{let w=document.createElement('div');w.className='table-scroll';t.before(w);w.append(t)});(()=>{
 const colors={blue:'#58c4dd',purple:'#b18ac7',gold:'#f0ac5f',green:'#83c167',teal:'#5cd0b3',gray:'#777785'};
 const tx=(x,y,s,c='gray',size=16)=>'<text x="'+x+'" y="'+y+'" fill="'+colors[c]+'" font-size="'+size+'">'+s+'</text>';
@@ -1556,4 +1573,72 @@ document.querySelectorAll('.am-demo').forEach(d=>{let timer=null;const input=d.q
     reset.addEventListener('click', () => refresh(0));
     refresh(Number(range.value));
   });
-})();;const z=document.getElementById('zoom');document.querySelectorAll('.enlarge').forEach(b=>b.onclick=()=>{z.querySelector('.zoom-body').innerHTML=b.closest('figure').outerHTML;z.showModal()});z.querySelector('.close').onclick=()=>z.close();z.addEventListener('click',e=>{if(e.target===z)z.close()});const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id))}})},{rootMargin:'-10% 0px -75% 0px'});document.querySelectorAll('main h2[id]').forEach(h=>obs.observe(h));</script></body></html>
+})();;const z=document.getElementById('zoom');document.querySelectorAll('.enlarge').forEach(b=>b.onclick=()=>{z.querySelector('.zoom-body').innerHTML=b.closest('figure').outerHTML;z.showModal()});z.querySelector('.close').onclick=()=>z.close();z.addEventListener('click',e=>{if(e.target===z)z.close()});const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id))}})},{rootMargin:'-10% 0px -75% 0px'});document.querySelectorAll('main h2[id]').forEach(h=>obs.observe(h));</script><script>
+(()=>{
+const root=document.getElementById('compressor-animation');if(!root)return;
+const el=k=>root.querySelector('[data-cp="'+k+'"]');
+const names=['内容投影','额外gate投影','短期state','组装贡献','逐维softmax','加权求和','提交长期缓存','state保留与覆盖','CSA/HCA对比'];
+let step=0,mode='csa',target='main',dim=0,timer=null;
+const softmax=a=>{let m=Math.max(...a),e=a.map(x=>Math.exp(x-m)),s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
+const fmt=x=>x.toFixed(4);
+function data(){const csa=mode==='csa',r=csa?4:128,D=target==='index'?128:512,n=csa?8:128,P=csa?2*D:D;
+ const u=Array.from({length:n},(_,i)=>[1+(i%8),1+((i*3)%7)]),g=Array.from({length:n},(_,i)=>[Math.sin(i*.8)*2,Math.cos(i*.8)*2]);
+ const w=softmax(g.map(row=>row[dim])),z=w.reduce((s,x,i)=>s+x*u[i][dim],0);
+ return {csa,r,D,n,P,u,g,w,z,rows:csa?[0,1,2,3,4,5,6,7]:[0,1,2,3,124,125,126,127],stateBytes:2*n*P*4};}
+function table(head,rows){return '<table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+function render(){const d=data(),{csa,r,D,n,P}=d;let s='',rows='',caption='';
+ const color={blue:'#6cc8ef',green:'#67dcca',purple:'#b7a1ff',gold:'#ffd287',gray:'#a0b4c7'};
+ const tx=(x,y,t,c='gray',size=16)=>s+='<text x="'+x+'" y="'+y+'" fill="'+color[c]+'" font-size="'+size+'">'+t+'</text>';
+ const box=(x,y,w,h,t,c='blue')=>{s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="8" fill="'+color[c]+'" fill-opacity=".12" stroke="'+color[c]+'"/>';tx(x+12,y+h/2+6,t,c)};
+ const line=(x,y,a,b,c='gray')=>s+='<line x1="'+x+'" y1="'+y+'" x2="'+a+'" y2="'+b+'" stroke="'+color[c]+'" stroke-width="2"/>';
+ const label=i=>csa?'t'+(i+4)+(i<4?' / A支':' / B支'):'t'+i;
+ tx(22,30,(csa?'CSA：每4个新token提交，重叠':'HCA：每128个token提交，非重叠')+' · '+(target==='main'?'主KV':'Indexer K')+' D='+D,'green');
+ if(step===0||step===1){
+  box(242,65,480,54,'一个token的隐藏态 xᵢ：[1, 4096]','purple');
+  line(480,120,242,188,'blue');box(22,188,425,66,'W_content ['+P+', 4096]','blue');
+  line(480,120,718,188,step===1?'green':'gray');box(492,188,425,66,'W_gate ['+P+', 4096]',step===1?'green':'gray');
+  line(234,255,234,308,'blue');box(22,308,425,64,'内容 uᵢ：[1, '+P+']','blue');
+  if(step===1){line(704,255,704,308,'green');box(492,308,425,64,'分数 gᵢ + 位置项：[1, '+P+']','green')}
+  tx(22,428,csa?'1024 = A支512 + B支512（主KV）；索引对象为256 = 128 + 128':'512个输出特征：一个投影支，无A/B拆分','gray',15);
+  caption=step===0?'特征投影先改变宽度，token数量仍是1。输出每一维都是4096个输入维的可学习线性组合。'+(csa?'A/B是两套不同参数的投影，供相邻两个槽使用；没有固定的语义分工。':'HCA只有一支512维内容投影。'):'gate来自额外的线性投影，与内容投影使用不同参数。加入块内可学习位置项后，得到每个token、每个投影维的分数。这里还未softmax；一个token没有一个跨维度共用的标量权重。';
+ }else if(step===2){
+  box(22,80,415,66,'kv_state：['+n+', '+P+'] · FP32','blue');box(492,80,425,66,'score_state：['+n+', '+P+'] · FP32','green');
+  box(22,225,895,67,csa?'上一块4行 + 当前块4行；每行含A/B两支':'当前128-token块；每行含一支512维','purple');
+  tx(22,355,'此处存的是softmax前的gate分数；融合权重尚未生成','green');tx(22,404,'两份state合计 '+d.stateBytes/1024+' KiB / 序列 / 这一个压缩器','gray');
+  caption='decode逐token写入固定大小的state，等块完成才池化。state容量不随历史长度增长。上述形状是官方参考实现的预分配布局，省略batch；不是生产后端统一的显存格式。CSA主压缩器为64KiB，独立索引压缩器为16KiB；HCA主压缩器为512KiB。';
+ }else if(step===3){
+  if(csa){box(22,82,425,65,'上一块 t4–t7 的 A支：[4, '+D+']','blue');box(492,82,425,65,'当前块 t8–t11 的 B支：[4, '+D+']','purple');line(234,148,480,236);line(704,148,480,236);box(257,237,450,65,'组装后 U、G 各为 [8, '+D+']','green');tx(22,394,'C1用了t4–t7的B支；C2用同一组token的A支','gray')}
+  else{box(22,82,895,65,'当前块 t0–t127：128个token，每个512维','blue');line(480,148,480,236);box(257,237,450,65,'U、G 各为 [128, 512]','green');tx(22,394,'下一槽来自t128–t255；不重复读取前一块','gray')}
+  caption=csa?'组装的是8个token投影贡献，而非把特征拼成4096维。token轴有8行，特征轴有D列。内容和gate取完全对应的A/B半支；首槽没有上一块，无效贡献通过−∞ gate屏蔽。':'HCA保留完整128行作为池化贡献，token轴128行、特征轴512列；没有上一块重叠，也没有A/B两支。';
+ }else if(step===4||step===5){
+  box(22,74,425,61,'U：['+n+'个token贡献, '+D+'个特征]','blue');box(492,74,425,61,'G：['+n+'个token贡献, '+D+'个分数]','green');
+  line(704,136,704,200,'green');box(492,201,425,65,'沿token轴softmax → W：['+n+', '+D+']','green');
+  tx(22,243,'每一列c独立归一化：Σᵢ W[i,c] = 1','blue');
+  if(step===5){line(234,136,480,336,'blue');line(704,267,480,336,'green');box(162,337,640,64,'沿token轴求和 → z：[1, '+D+']；z['+dim+']='+fmt(d.z),'gold')}
+  else tx(22,390,'横向是特征维c；softmax纵向跨'+n+'行，不跨特征列','gold');
+  rows=table(['token贡献（行）','内容 U[i,'+dim+']','gate G[i,'+dim+']','权重 W[i,'+dim+']','加权贡献'],d.rows.map(i=>[label(i),fmt(d.u[i][dim]),fmt(d.g[i][dim]),fmt(d.w[i]),fmt(d.w[i]*d.u[i][dim])]));
+  rows+='<p>全部'+n+'行：权重和 = '+fmt(d.w.reduce((a,b)=>a+b,0))+'；贡献和 = '+fmt(d.z)+(csa?'':'。中间120行省略展示，但已参与softmax分母及求和。')+'</p>';
+  caption=step===4?'选择c=0或c=1，可看到同一组token在不同特征维上具有不同权重。softmax归一化的对象是每一列的'+n+'个gate分数，产生同形状W；这里没有max pooling。':'z[c]=Σᵢ W[i,c]×U[i,c]。先逐元素相乘，再沿token轴相加，'+n+'行变成1行，特征宽度D保持不变。归一化、RoPE和量化在池化之后执行。';
+ }else if(step===6){
+  box(22,80,415,61,'池化结果：[1, '+D+']','gold');line(438,110,492,110);box(492,80,425,61,'RMSNorm → RoPE → 量化','purple');line(704,142,704,231);box(22,232,895,67,'长期缓存：[N个完成槽, '+D+'个特征]','blue');
+  tx(22,371,'每提交一个槽，仅新增D个融合后的数值','gold');tx(22,417,'gate表、softmax权重表都不附带存进这个历史槽','green');
+  caption='新槽是一个固定D维的向量，历史cache不保存每个原始token的融合权重。N随历史增长：CSA约S/4，HCA约S/128。压缩位置编码锚点在块起点，提交发生在块完成时。';
+ }else if(step===7){
+  if(csa){box(22,80,415,65,'t4–t7 的上一块state','gray');box(492,80,425,65,'t8–t11 的当前块state','blue');line(704,146,234,240,'green');box(22,240,415,65,'搬到上一块区，下一槽使用A支','green');box(492,240,425,65,'当前块区由t12–t15逐行覆盖','purple');tx(22,410,'内容和gate一起保留/覆盖；长期槽C2保持不变','gold')}
+  else{box(22,80,895,65,'t0–t127完成 → 已提交一个长期槽','blue');line(480,146,480,240,'green');box(22,240,895,65,'同一个state区由t128–t255逐行覆盖','green');tx(22,410,'无上一块重叠；下一块不再需要t0–t127的gate','gold')}
+  caption=csa?'当前块完成后仍需保留，以参与下一槽的重叠。下一块写入当前区，上一块用于拼接；再完成时滚动覆盖。其容量固定，不会为所有历史token积累gate。':'提交后不为下一槽保留上一块gate；128行state缓冲区逐步复用。只有完成新块时才对整块softmax和求和，已有历史槽无需重新压缩。';
+ }else{
+  box(22,80,425,65,'CSA：压缩 + Indexer选择','blue');box(492,80,425,65,'HCA：高压缩 + 全读摘要','purple');
+  rows=table(['机制','CSA','HCA'],[['主内容/gate投影','4096→1024，各拆A/B 512','4096→512，单支'],['每槽池化贡献','最多8个token，重叠','128个token，不重叠'],['生成一个槽的间隔','4个新token','128个新token'],['主KV结果维度','512','512'],['主压缩器state（参考）','内容和gate各[8,1024]','内容和gate各[128,512]'],['索引压缩器','独立：4096→256→128','没有'],['全局读取','当前query选择top-k','全部已完成槽']]);
+  tx(22,238,'SWA：逐token的局部KV路径，不使用上述压缩器','gray');tx(22,293,'本动画中的4096是V4 Flash输入维，不是所有型号的统一值','gray');
+  caption='CSA主KV和Indexer K由独立压缩器生成，参数与缓存分开；槽号对应。HCA只有主KV压缩器，没有learned Indexer。两者都用逐维gate加权池化，均不使用max pooling。';
+ }
+ el('svg').innerHTML=s;el('table').innerHTML=rows;el('caption').textContent=caption;el('position').textContent=(step+1)+' / 9';el('step').value=step;el('prev').disabled=step===0;el('next').disabled=step===8;el('target').disabled=!csa;
+ el('stages').innerHTML=names.map((n,i)=>'<span class="'+(i===step?'active':'')+'">'+(i+1)+' '+n+'</span>').join('');
+ root.dataset.mode=mode;root.dataset.step=step;root.dataset.shape=n+','+D;root.dataset.weightSum=d.w.reduce((a,b)=>a+b,0);root.dataset.poolValue=d.z;
+}
+function stop(){clearInterval(timer);timer=null;el('play').textContent='播放';el('play').setAttribute('aria-pressed','false')}
+el('play').onclick=()=>{if(timer){stop();return}if(step===8)step=0;render();el('play').textContent='暂停';el('play').setAttribute('aria-pressed','true');timer=setInterval(()=>{step=Math.min(8,step+1);render();if(step===8)stop()},2300)};
+el('next').onclick=()=>{stop();step=Math.min(8,step+1);render()};el('prev').onclick=()=>{stop();step=Math.max(0,step-1);render()};el('reset').onclick=()=>{stop();step=0;dim=0;el('dim').value=0;render()};el('step').oninput=()=>{stop();step=+el('step').value;render()};el('mode').onchange=()=>{stop();mode=el('mode').value;target='main';el('target').value='main';render()};el('target').onchange=()=>{stop();target=el('target').value;render()};el('dim').onchange=()=>{stop();dim=+el('dim').value;render()};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});render();
+})();
+</script></body></html>
