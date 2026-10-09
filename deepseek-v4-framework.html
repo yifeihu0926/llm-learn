@@ -435,6 +435,21 @@ A_t = L_t ∪ G_t
 <p>ratio 4 的重叠让新压缩位置同时利用前一块和当前块的信息。ratio 128 保留更粗的长距离摘要，历史位置更少。</p>
 <p>Prefill 按完整块生成结果，末尾未完成块保留在 compressor state 中。Decode 每写入一个 token 更新状态，到 <code>(start_pos+1) % ratio == 0</code> 时提交新压缩位置。该位置的 RoPE 以块起点 <code>start_pos+1-ratio</code> 为基准。缓存中已完成的全局 KV 与尚未完成块的 state 是两类不同状态。</p>
 <h3 id="section-13">2.6 Indexer 与稀疏注意力</h3>
+<section id="indexer-topk-animation" class="cp-demo" aria-label="Indexer选择top-k的逐步动画">
+<div class="cp-tag">V4 INDEXER · 从分数到下标</div><h4>为什么选这些槽？逐头打分、屏蔽、排序和读取</h4>
+<p>这里处理16-token prefill的一个query。候选池有4个压缩槽；当前位置决定哪些槽可见。金色表示选中，灰色表示因果不可见。</p>
+<div class="cp-controls">
+<label>query <select data-tk="query"><option value="0">A：头1看特征0</option><option value="1">B：交换两头查询</option></select></label>
+<label>当前位置 t <select data-tk="pos"><option value="11">11 · 3个完成槽</option><option value="7">7 · 2个完成槽</option><option value="15">15 · 4个完成槽</option></select></label>
+<label>选择数量 k <select data-tk="k"><option value="2">2</option><option value="1">1</option><option value="3">3</option></select></label>
+<button type="button" data-tk="play" aria-pressed="false">播放</button><button type="button" data-tk="prev">上一步</button><button type="button" data-tk="next">下一步</button><button type="button" data-tk="reset">重置</button>
+</div>
+<label class="cp-progress">步骤 <input type="range" min="0" max="7" value="0" data-tk="step" aria-label="Indexer top-k动画步骤"><output data-tk="position">1 / 8</output></label>
+<div class="cp-stages" data-tk="stages"></div><div class="cp-view"><svg data-tk="svg" viewBox="0 0 960 470" role="img" aria-label="Indexer打分、mask、排序、top-k和KV读取"></svg></div>
+<div class="cp-table" data-tk="table"></div><p class="cp-caption" data-tk="caption" aria-live="polite"></p>
+<p class="cp-note">教学例：1个query、2个索引头、4个候选槽，每个向量显示2维；α=[0.6,0.4]已包含缩放。真实V4索引K为128维、64个索引头；Flash k上限512，Pro为1024。score公式及因果条件遵循参考实现，数值不是模型实测。top-k可直接由选择算法实现，不必先完整排序；动画排序用于解释结果。</p>
+</section>
+
 <p>Indexer 是 Attention 内部的一条轻量索引分支，selector 是其选择历史位置的阶段。它先筛选全局位置，再让主注意力读取这些位置的 512 维 KV；不是 Attention 后面的另一个模型层。纯 SWA 不需要它，HCA 按完成块直接构造全读索引，V4 的 CSA 才执行 learned Indexer。</p>
 <p><strong>索引 Q、K 与头权重从哪里来？</strong> 对 Attention 入口的归一化隐藏态 x，先计算主 Q 的低秩特征 <code>qr=RMSNorm(wq_a(x))</code>。主 Q 和索引 Q 分别使用自己的 <code>wq_b</code>；索引 Q 的输出是每头 128 维，Flash/Pro 都有 64 个索引头。V4 索引 K 由独立的 ratio 4 重叠压缩器产生，特征维为 128、块内投影宽度为 256；主 KV 压缩器则输出 512 维，它们参数与缓存分开。</p>
 <pre><code class="language-text">索引 Q = FP4模拟(Hadamard(RoPE(wq_b_index(qr))))  [b,s,H_i,128]
@@ -1640,5 +1655,55 @@ function render(){const d=data(),{csa,r,D,n,P}=d;let s='',rows='',caption='';
 function stop(){clearInterval(timer);timer=null;el('play').textContent='播放';el('play').setAttribute('aria-pressed','false')}
 el('play').onclick=()=>{if(timer){stop();return}if(step===8)step=0;render();el('play').textContent='暂停';el('play').setAttribute('aria-pressed','true');timer=setInterval(()=>{step=Math.min(8,step+1);render();if(step===8)stop()},2300)};
 el('next').onclick=()=>{stop();step=Math.min(8,step+1);render()};el('prev').onclick=()=>{stop();step=Math.max(0,step-1);render()};el('reset').onclick=()=>{stop();step=0;dim=0;el('dim').value=0;render()};el('step').oninput=()=>{stop();step=+el('step').value;render()};el('mode').onchange=()=>{stop();mode=el('mode').value;target='main';el('target').value='main';render()};el('target').onchange=()=>{stop();target=el('target').value;render()};el('dim').onchange=()=>{stop();dim=+el('dim').value;render()};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});render();
+})();
+</script><script>
+(()=>{
+const root=document.getElementById('indexer-topk-animation');if(!root)return;
+const el=n=>root.querySelector('[data-tk="'+n+'"]');
+const stages=['query与索引K','每头QK点积','ReLU','各头加权求和','因果mask','按槽分数排序','取前k个下标','读取主KV'];
+const keys=[[-2,4],[3,-1],[1,2],[4,1]],alpha=[.6,.4],mainKV=[[1,3],[4,1],[2,5],[3,2]];
+let step=0,query=0,pos=11,k=2,timer=null;
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0),f=x=>Number.isFinite(x)?x.toFixed(2):'−∞';
+function calculate(){const qs=query===0?[[1,0],[0,1]]:[[0,1],[1,0]];
+ const raw=keys.map(key=>qs.map(q=>dot(q,key))),relu=raw.map(row=>row.map(x=>Math.max(0,x))),contrib=relu.map(row=>row.map((x,h)=>x*alpha[h])),scores=contrib.map(row=>row.reduce((a,b)=>a+b,0));
+ const visible=Math.floor((pos+1)/4),masked=scores.map((v,j)=>j<visible?v:-Infinity),rank=Array.from({length:visible},(_,j)=>j).sort((a,b)=>scores[b]-scores[a]),selected=rank.slice(0,k),ids=[...selected,...Array(Math.max(0,k-selected.length)).fill(-1)];
+ return {qs,raw,relu,contrib,scores,visible,masked,rank,selected,ids};}
+function table(headers,rows,chosen=[]){return '<table><thead><tr>'+headers.map(t=>'<th>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map((r,i)=>'<tr style="'+(chosen.includes(i)?'outline:1px solid #ffd287':'')+'">'+r.map(v=>'<td>'+v+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+function render(){const d=calculate();let s='',rows='',caption='';const colors={blue:'#6cc8ef',green:'#67dcca',purple:'#b7a1ff',gold:'#ffd287',gray:'#8fa4b8'};
+ const text=(x,y,t,c='gray',size=16)=>s+='<text x="'+x+'" y="'+y+'" fill="'+colors[c]+'" font-size="'+size+'">'+t+'</text>';
+ const box=(x,y,w,h,t,c='blue')=>{s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="7" stroke="'+colors[c]+'" fill="'+colors[c]+'" fill-opacity=".12"/>';text(x+12,y+h/2+6,t,c)};
+ const line=(x,y,a,b,c='gray')=>s+='<line x1="'+x+'" y1="'+y+'" x2="'+a+'" y2="'+b+'" stroke="'+colors[c]+'" stroke-width="2"/>';
+ text(22,30,'query '+(query===0?'A':'B')+' · t='+pos+' · k='+k+' · 已完成槽数 floor((t+1)/4)='+d.visible,'green');
+ if(step===0){box(22,70,895,65,'索引Q：1个query × 2个头 × 2个示意维 = [1,2,2]','green');box(22,184,895,65,'索引K：4个压缩槽 × 2个示意维 = [4,2]','blue');line(480,135,480,184);text(22,335,'Q₁=['+d.qs[0]+']；Q₂=['+d.qs[1]+']；α=[0.6,0.4]','gold');
+ rows=table(['压缩槽','完成位置','索引K（仅示意2维）'],keys.map((key,j)=>['C'+j,4*j+3,'['+key+']']));
+ caption='一个query产生多个索引头。每个头都对所有候选槽的索引K打分；同一槽的K被这些头共享。这里只选择历史位置，尚未读取主KV做最终attention。';
+ }else if(step<=3){
+  for(let j=0;j<4;j++){const x=22+j*230;box(x,70,210,52,'候选槽 C'+j,'purple');box(x,153,210,54,'头1：'+f(step===1?d.raw[j][0]:step===2?d.relu[j][0]:d.contrib[j][0]),'blue');box(x,229,210,54,'头2：'+f(step===1?d.raw[j][1]:step===2?d.relu[j][1]:d.contrib[j][1]),'green');line(x+105,123,x+105,153);line(x+105,208,x+105,229);if(step===3){line(x+105,284,x+105,337);box(x,338,210,54,'槽分数 '+f(d.scores[j]),'gold')}}
+  if(step===1){rows=table(['槽','头1点积','头2点积'],d.raw.map((r,j)=>['C'+j,...r.map(f)]));caption='每个头做一次Q·K点积。输出形状是[1个query,2个头,4个槽]，每个槽暂时有2个分数。不同头不是各自挑选top-k后再合并。'}
+  if(step===2){rows=table(['槽','头1：原始→ReLU','头2：原始→ReLU'],d.raw.map((r,j)=>['C'+j,...r.map((x,h)=>f(x)+' → '+f(d.relu[j][h]))]));caption='ReLU(D)=max(D,0)：把每个负点积分数变成0。这里的max是和0比较，不是max pooling，也不决定选择哪个槽。'}
+  if(step===3){rows=table(['槽','0.6×ReLU(头1)','0.4×ReLU(头2)','两头贡献之和'],d.contrib.map((r,j)=>['C'+j,...r.map(f),f(d.scores[j])]));caption='先融合头，再选槽：S[j]=Σ_h α[h]×ReLU(Q[h]·K[j])。头轴被求和消掉，输出变成[1个query,4个槽]。α由当前隐藏态投影生成；没有softmax且可为负。本例使用正权重。'}
+ }else if(step===4){
+  for(let j=0;j<4;j++){const x=22+j*230,c=j<d.visible?'purple':'gray';box(x,80,210,58,'C'+j+' 完成于t='+ (4*j+3),c);line(x+105,139,x+105,221,c);box(x,222,210,65,f(d.scores[j])+' → '+f(d.masked[j]),c)}
+  text(22,392,'仅 j < '+d.visible+' 可见；屏蔽发生在 top-k 之前','gold');
+  rows=table(['槽','原分数','当前query可见？','mask后'],d.scores.map((s,j)=>['C'+j,f(s),j<d.visible?'是':'否',f(d.masked[j])]));
+  caption='prefill候选池可能含后面query才可用的压缩槽。对当前t，将未完成或未来槽置为−∞。默认t=11时C3虽然分数最高，仍不能选；到t=15完成后才可选。';
+ }else if(step===5||step===6){
+  text(22,76,'按有效槽分数从高到低排列（每个query独立）','purple');
+  d.rank.forEach((j,i)=>{const x=22+i*230,c=step===6&&i<k?'gold':'purple';box(x,113,210,65,'第'+(i+1)+'：C'+j+' / '+f(d.scores[j]),c);if(step===6&&i<k)line(x+105,179,477,276,'gold')});
+  if(step===6)box(100,277,780,65,'槽ID：['+d.ids+']；有效'+d.selected.length+'个（请求k='+k+'）','gold');
+  rows=table(['排序名次','槽ID','分数','结果'],d.rank.map((j,i)=>[i+1,j,f(d.scores[j]),step===6?(i<k?'选中':'未选中，仍在缓存'):'待取前k个']));
+  caption=step===5?'排序对象是槽轴：一个槽只有融合后的一个分数。默认query A、t=11的顺序为C1(1.8)、C0(1.6)、C2(1.4)，C3因mask不参与有效排名。真实top-k实现可以直接选择而不完整排序。':'取有效排名前k个，输出的是下标，不是概率。有效数量≤min(k,已完成槽数)；不足部分在此示意为−1，kernel忽略。切换query或t会改变结果；缓存内容保持不变。';
+ }else{
+  box(22,76,895,58,'选中的槽ID ['+d.ids+'] → 本例prefill全局偏移16','gold');
+  d.selected.forEach((j,i)=>{const x=22+i*300;line(x+135,136,x+135,215,'gold');box(x,216,280,66,'槽'+j+' → KV地址'+(16+j),'blue');box(x,327,280,57,'读取主KV C'+j+' · 512维','purple')});
+  rows=table(['槽ID','物理地址','读取对象'],d.ids.map(j=>[j,j<0?'−1，忽略':16+j,j<0?'无效项':'主KV C'+j+'；示意两维['+mainKV[j]+']']));
+  caption='下标将索引K与同槽号的主KV关联。本例16-token prefill，主KV拼接为16个原始位置+4个压缩槽，故全局地址=16+槽ID；真实decode偏移为窗口长度128。随后主attention用自己的512维Q重新打分，与局部位置统一softmax。Indexer分数不作为主attention概率。';
+ }
+ el('svg').innerHTML=s;el('table').innerHTML=rows;el('caption').textContent=caption;el('step').value=step;el('position').textContent=(step+1)+' / 8';el('prev').disabled=step===0;el('next').disabled=step===7;el('stages').innerHTML=stages.map((n,i)=>'<span class="'+(i===step?'active':'')+'">'+(i+1)+' '+n+'</span>').join('');
+ root.dataset.step=step;root.dataset.scores=d.scores.join(',');root.dataset.masked=d.masked.join(',');root.dataset.selected=d.selected.join(',');root.dataset.ids=d.ids.join(',');root.dataset.visible=d.visible;
+}
+function stop(){clearInterval(timer);timer=null;el('play').textContent='播放';el('play').setAttribute('aria-pressed','false')}
+el('play').onclick=()=>{if(timer){stop();return}if(step===7)step=0;render();el('play').textContent='暂停';el('play').setAttribute('aria-pressed','true');timer=setInterval(()=>{step=Math.min(7,step+1);render();if(step===7)stop()},2300)};
+el('prev').onclick=()=>{stop();step=Math.max(0,step-1);render()};el('next').onclick=()=>{stop();step=Math.min(7,step+1);render()};el('reset').onclick=()=>{stop();step=0;query=0;pos=11;k=2;el('query').value=0;el('pos').value=11;el('k').value=2;render()};el('step').oninput=()=>{stop();step=+el('step').value;render()};el('query').onchange=()=>{stop();query=+el('query').value;render()};el('pos').onchange=()=>{stop();pos=+el('pos').value;render()};el('k').onchange=()=>{stop();k=+el('k').value;render()};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});render();
 })();
 </script></body></html>
