@@ -486,7 +486,31 @@ S[b,t,j] = Σ_h α[b,t,h] × max(D[b,t,h,j],0)        [b,s,N]
 wo_b                      [b,s,d]
 </code></pre>
 <p><code>wo_a</code> 的权重可记为 <code>[g×r_o,h×512/g]</code>，计算按组组织；<code>wo_b</code> 为 <code>[d,g×r_o]</code>。这一结构避免直接使用完整的 <code>[d,h×512]</code> 输出矩阵，同时保持组内头信息融合。</p>
-<h3 id="section-15">2.8 MoE 路由与专家</h3>
+<h3 id="section-15">2.8 MoE 路由与专家</h3><section id="moe-animation" class="cp-demo" aria-label="MoE完整计算逐步动画">
+<div class="cp-tag">V4 MoE · 从路由到专家融合</div><h4>动画：一个 token 怎样经过 MoE？</h4>
+<p>区分三种量：Router 原始分数、选专家的带偏置分数、融合输出的路由权重。专家内部的 SwiGLU gate 是另一套计算。</p>
+<div class="cp-controls">
+<label>token <select data-me="token"><option value="0">A：x=[1,2]</option><option value="1">B：x=[2,−1]</option></select></label>
+<label>路由方式 <select data-me="mode"><option value="score">分数 top-k</option><option value="hash">token ID 查表</option></select></label>
+<button type="button" data-me="play" aria-pressed="false">播放</button><button type="button" data-me="prev">上一步</button><button type="button" data-me="next">下一步</button><button type="button" data-me="reset">重置</button>
+</div>
+<label class="cp-progress">步骤 <input data-me="step" type="range" min="0" max="8" value="0" aria-label="MoE动画步骤"><output data-me="position">1 / 9</output></label>
+<div class="cp-stages" data-me="stages"></div>
+<div data-me="flow" class="me-flow" role="img" aria-label="当前MoE计算步骤"></div>
+<div class="cp-table" data-me="table"></div><p class="cp-caption" data-me="caption" aria-live="polite"></p>
+<p class="cp-note">教学例使用2维隐藏向量、4个路由专家、top-2、1个共享专家，全部矩阵是明确给定的示例参数，不是模型实测。采用参考实现的 sqrt(softplus) 路由激活、非softmax分数归一化与 route_scale=1；实际数量、缩放及专家截断由模型配置决定。忽略量化误差与GPU通信延迟；最后展示的mHC衔接不参与本例数值计算。</p>
+</section>
+<style>
+#moe-animation .me-flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:14px;min-height:160px;padding:22px 0;color:inherit}
+#moe-animation .me-node{padding:16px;max-width:100%;background:color-mix(in srgb,currentColor 5%,transparent);border-radius:8px;overflow-wrap:anywhere;flex:1 1 160px}
+#moe-animation .me-node strong{display:block;margin-bottom:8px}
+#moe-animation .me-arrow{position:relative;flex:0 0 34px;text-align:center}
+#moe-animation .me-arrow:after{content:'●';position:absolute;left:0;top:0;animation:me-travel .8s ease-out 1 forwards}
+@keyframes me-travel{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@media(prefers-reduced-motion:reduce){#moe-animation .me-arrow:after{animation:none;display:none}}
+@media(max-width:560px){#moe-animation .me-flow{flex-direction:column;align-items:stretch}#moe-animation .me-node{flex:auto}#moe-animation .me-arrow{flex:auto;transform:rotate(90deg);align-self:center}}
+</style>
+
 <p><strong>Attention 之后的完整衔接</strong>：O 投影属于 Attention 的末尾，把多头结果恢复为 <code>[b,s,d]</code>。Block 先使用 Attention 子层之前保存的四路 residual 和该子层的 post/comb 做 mHC 回写，得到更新的 <code>[b,s,4,d]</code>；再从这份更新状态收缩出单路，经过独立的 <code>ffn_norm</code>，送入 MoE。不会把未回写的 Attention 向量直接当成 MoE 的完整输入。</p>
 <pre><code class="language-text">u_attn = Attention(RMSNorm_attn(collapse(X)))      [b,s,d]
 Y_i = post_attn[i] × u_attn + Σ_j comb_attn[j,i] X_j
@@ -1705,5 +1729,31 @@ function render(){const d=calculate();let s='',rows='',caption='';const colors={
 function stop(){clearInterval(timer);timer=null;el('play').textContent='播放';el('play').setAttribute('aria-pressed','false')}
 el('play').onclick=()=>{if(timer){stop();return}if(step===7)step=0;render();el('play').textContent='暂停';el('play').setAttribute('aria-pressed','true');timer=setInterval(()=>{step=Math.min(7,step+1);render();if(step===7)stop()},2300)};
 el('prev').onclick=()=>{stop();step=Math.max(0,step-1);render()};el('next').onclick=()=>{stop();step=Math.min(7,step+1);render()};el('reset').onclick=()=>{stop();step=0;query=0;pos=11;k=2;el('query').value=0;el('pos').value=11;el('k').value=2;render()};el('step').oninput=()=>{stop();step=+el('step').value;render()};el('query').onchange=()=>{stop();query=+el('query').value;render()};el('pos').onchange=()=>{stop();pos=+el('pos').value;render()};el('k').onchange=()=>{stop();k=+el('k').value;render()};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});render();
+})();
+</script><script>(()=>{
+const root=document.getElementById('moe-animation');if(!root)return;
+const el=n=>root.querySelector('[data-me="'+n+'"]');
+const stages=['输入与分支','Router投影','分数激活','选择专家','融合权重','token分发','专家SwiGLU','共享与汇合','输出与mHC'];
+const router=[[1,0],[0,1],[.5,.5],[-1,.5]],bias=[0,0,1,0];
+let step=0,token=0,mode='score',timer=null;
+const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),f=v=>v.toFixed(3),vec=a=>'['+a.map(f).join(', ')+']';
+const mat=(w,x)=>w.map(r=>dot(r,x)),silu=v=>v/(1+Math.exp(-v));
+function expert(x,i){const a=1+i*.2,w1=[[a,0],[0,a]],w3=[[1,.25],[-.25,1]],w2=[[1,0],[0,1]],gate=mat(w1,x),up=mat(w3,x),act=gate.map(silu),hidden=act.map((v,j)=>v*up[j]),out=mat(w2,hidden);return {w1,w3,w2,gate,up,act,hidden,out};}
+function calculate(){const x=token===0?[1,2]:[2,-1],logits=mat(router,x),scores=logits.map(z=>Math.sqrt(Math.log1p(Math.exp(z)))),selection=scores.map((v,i)=>v+bias[i]),ids=mode==='hash'?(token===0?[0,3]:[1,2]):[0,1,2,3].sort((a,b)=>selection[b]-selection[a]).slice(0,2),denom=ids.reduce((s,i)=>s+scores[i],0),weights=ids.map(i=>scores[i]/denom),experts=ids.map(i=>expert(x,i)),weighted=experts.map((e,i)=>e.out.map(v=>v*weights[i])),routed=[0,1].map(j=>weighted.reduce((s,v)=>s+v[j],0)),shared=expert(x,4),output=routed.map((v,j)=>v+shared.out[j]);return{x,logits,scores,selection,ids,weights,experts,weighted,routed,shared,output};}
+const table=(headers,rows)=>'<table><thead><tr>'+headers.map(v=>'<th>'+v+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(v=>'<td>'+v+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+function render(){const d=calculate();let nodes=[],rows='',caption='';
+if(step===0){nodes=[['输入 x',vec(d.x)+' · [1 token,2隐藏维]'],['两条并行路径','Router + 路由专家；共享专家始终参与']];rows=table(['参数','示例形状'],[['Router矩阵','[4专家,2隐藏维]'],['每个专家 W₁ / W₃ / W₂','本例均为[2,2]，各专家W₁不同'],['输出','[1 token,2隐藏维]']]);caption='MoE收到的是Attention之后、经Block的mHC前处理与归一化得到的隐藏表示，不读取历史KV。真实输入可以是[batch,sequence,d]，参考实现先展平成[token总数,d]。';}
+if(step===1){nodes=[['隐藏向量',vec(d.x)],['Router：z=xWᵀ',vec(d.logits)]];rows=table(['专家','Router参数行','点积z'],router.map((w,i)=>['E'+i,vec(w),f(d.logits[i])]));caption='每个专家对应Router投影矩阵的一行参数。一次投影同时产生所有专家的logit；Router参数和专家内部参数分别训练。';}
+if(step===2){nodes=[['Router logits',vec(d.logits)],['s=√softplus(z)',vec(d.scores)]];rows=table(['专家','logit','原始分数s'],d.scores.map((v,i)=>['E'+i,f(d.logits[i]),f(v)]));caption='本例采用sqrt(softplus(z))，这里还没有归一化成和为1的权重。参考代码还支持sigmoid或softmax；具体采用哪一种由模型配置决定。';}
+if(step===3){nodes=[['选择规则',mode==='hash'?'token ID → 固定专家表':'选择分数 = s + bias'],['选中的专家',d.ids.map(i=>'E'+i).join('、')]];rows=table(['专家','原始s','选择偏置','s+bias','是否选中'],d.scores.map((v,i)=>['E'+i,f(v),f(bias[i]),f(d.selection[i]),d.ids.includes(i)?'选中':'未选中']));caption=mode==='hash'?'查表路由用token ID获取专家编号；此时不使用选择偏置和分数top-k。表中偏置仅用于对照另一种模式；Router原始分数仍用于计算融合权重。':'偏置只改变专家选择，不改变专家输出的融合权重。示例E2加1，可超过原本分数更高的专家。每个token独立选top-2，不是每个注意力头选专家。';}
+if(step===4){nodes=[['取选中专家原始分数',vec(d.ids.map(i=>d.scores[i]))],['归一化 × route_scale',vec(d.weights)+' · scale=1']];rows=table(['选中专家','原始s，不含bias','w=s/Σ选中s'],d.ids.map((i,j)=>['E'+i,f(d.scores[i]),f(d.weights[j])]));caption='融合权重来自未加偏置的原始分数。非softmax路由对选中分数重新归一化，再乘route_scale；如果score_func为softmax，参考实现跳过这次重新归一化。';}
+if(step===5){nodes=[['当前token',vec(d.x)],...d.ids.map(i=>['送到 E'+i,'收到同一份x，不是切分x的维度'])];rows=table(['目的专家','收到的输入','融合权重'],d.ids.map((i,j)=>['E'+i,vec(d.x),f(d.weights[j])]));caption='一个token同时送给多个专家，每个专家接收完整隐藏向量。批处理中按专家将多个token分组；分布式执行时送到持有专家的设备，算完再汇集。';}
+if(step===6){const e=d.experts[0];nodes=[['E'+d.ids[0]+' 双投影','gate='+vec(e.gate)+'；up='+vec(e.up)],['SiLU(gate) ⊙ up',vec(e.hidden)],['输出投影 W₂',vec(e.out)]];rows=table(['选中专家','gate=W₁x','up=W₃x','SiLU(gate)⊙up','输出W₂h'],d.experts.map((e,j)=>['E'+d.ids[j],vec(e.gate),vec(e.up),vec(e.hidden),vec(e.out)]));caption='专家内部gate是一个中间维向量，与Router的每专家标量权重不同。真实专家可对gate/up做配置指定的截断，本例不截断。参考实现将路由标量乘在中间激活后再做W₂，在线性输出投影下等价于加权专家输出。';}
+if(step===7){nodes=[['路由专家加权和',vec(d.routed)],['加共享专家输出',vec(d.shared.out)],['MoE输出 y',vec(d.output)]];rows=table(['分支','未加权输出','权重','贡献'],[...d.experts.map((e,j)=>['E'+d.ids[j],vec(e.out),f(d.weights[j]),vec(d.weighted[j])]),['共享专家',vec(d.shared.out),'1 · 不经Router筛选',vec(d.shared.out)]]);caption='y=Σ选中专家 wᵢEᵢ(x)+E共享(x)。分布式参考实现先all_reduce路由专家贡献，再加共享专家输出。共享专家不加入top-k权重的归一化分母。';}
+if(step===8){nodes=[['MoE输出',vec(d.output)+' · 恢复[batch,sequence,d]'],['mHC post / residual','把MoE结果写回多路残差流'],['下一层','继续Attention与MoE']];rows=table(['边界','含义'],[['本例精确数值终点',vec(d.output)],['Block衔接','不是简单假设只有x+y；V4由mHC权重控制残差流融合'],['KV cache','MoE不产生历史KV；其专家参数是模型权重']]);caption='这里完成MoE模块的完整前向。Block外侧的mHC会使用前处理时生成的post/residual权重融合输出；本动画展示连接关系，未模拟mHC数值。';}
+el('flow').innerHTML=nodes.map((n,i)=>(i?'<span class="me-arrow" aria-hidden="true">→</span>':'')+'<div class="me-node"><strong>'+n[0]+'</strong>'+n[1]+'</div>').join('');el('table').innerHTML=rows;el('caption').textContent=caption;el('step').value=step;el('position').textContent=(step+1)+' / 9';el('stages').innerHTML=stages.map((n,i)=>'<span class="'+(i===step?'active':'')+'">'+(i+1)+' '+n+'</span>').join('');el('prev').disabled=step===0;el('next').disabled=step===8;root.dataset.step=step;root.dataset.ids=d.ids.join(',');root.dataset.weights=d.weights.join(',');root.dataset.output=d.output.join(',');}
+function stop(){clearInterval(timer);timer=null;el('play').textContent='播放';el('play').setAttribute('aria-pressed','false');}
+el('play').onclick=()=>{if(timer){stop();return;}if(step===8)step=0;render();el('play').textContent='暂停';el('play').setAttribute('aria-pressed','true');timer=setInterval(()=>{step=Math.min(8,step+1);render();if(step===8)stop();},2800);};
+el('prev').onclick=()=>{stop();step=Math.max(0,step-1);render();};el('next').onclick=()=>{stop();step=Math.min(8,step+1);render();};el('reset').onclick=()=>{stop();step=0;token=0;mode='score';el('token').value='0';el('mode').value='score';render();};el('step').oninput=()=>{stop();step=+el('step').value;render();};el('token').onchange=()=>{stop();token=+el('token').value;render();};el('mode').onchange=()=>{stop();mode=el('mode').value;render();};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});render();
 })();
 </script></body></html>
