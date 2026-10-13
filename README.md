@@ -20,3 +20,12 @@
 参数量按原始构造器 shape 统计，缓存按明确的 BF16 数组或生产打包格式计算。训练设置采用官方报告披露。CPU 边界与公式检查不代表完整权重质量、GPU kernel 数值或吞吐测量。
 
 字体与公式组件许可见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+## 2026-10-14 更新资料
+
+- [V4 量化详解](deepseek-v4-quantization.html)：配套 [Markdown](deepseek-v4-quantization.md) 和量化图示。
+- [MegaMoE 完整交互讲解](mega-moe-full.html)：配套 [讲解稿](mega-moe-full-narration.txt)、字幕和流程配图。
+- 四份架构与算子文档均有同名 Markdown。
+- 补充张量数据流、代码调用结构、官方训练资料和推理框架对比笔记。
+
+本次仅上传文档、HTML 交互动画及配图，不包含视频文件。建议 git clone 或下载整个仓库，保持 HTML 与配图在同一目录。GitHub 文件页不直接执行 HTML，可下载后用浏览器打开。教学动画中的示例时序不代表 GPU 实测性能。
