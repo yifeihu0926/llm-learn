@@ -22,9 +22,11 @@
 | 08 量化与缓存 | 逻辑 shape、数值精度与物理字节如何分别计算？ |
 | 09 V4.1 增量 | 跨层共享、CED、Engram、DSpark、视觉改变了什么？ |
 | 10 生成、服务与训练 | 模型前向怎样放进完整运行流程？ |
-| 11 源码与维护 | 到哪里验证结论，以后怎样补充而不重复？ |
+| 11 源码与维护 | 固定源码在哪里，vLLM 实际调用哪些算子，怎样继续维护？ |
 
 版本：2026-10-14。每章包含适用范围、输入输出、计算步骤、示例与固定版本源码链接。动画为缩小后的教学数据，不代表 checkpoint 实际数值或 GPU 性能。
+
+第 11 章包含 **9 个模块、67 项 vLLM 实际算子与功能组**，附执行路径图、Prefill/Decode 差异、后端资格和固定源码行号；HTML 支持模块筛选与关键词检索。
 
 ## 获取与更新
 
@@ -47,6 +49,7 @@ git pull --ff-only
 - [旧综合版](deepseek-v4-framework.html)
 - [旧 Flash](deepseek-v4-flash.html) · [旧 Pro](deepseek-v4-pro.html) · [旧 V4.1](deepseek-v41-flash.html)
 - [旧量化专题](deepseek-v4-quantization.html) · [旧 MegaMoE 动画](mega-moe-full.html)
+- [MegaMoE 源码专题](mega-moe-source-guide.html) · [vLLM 算子独立索引](vllm-deepseek-v4-operators.html)
 - [第三方组件许可](THIRD-PARTY-NOTICES.md)（旧版字体与公式组件；新版正文与交互不依赖这些组件）
 
 </details>

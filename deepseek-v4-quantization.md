@@ -222,10 +222,10 @@ MXFP4 的专家矩阵 payload 约为 BF16 的 26.56%；实际整模节省比例�
 
 | 内容 | 官方入口 | 本机源码定位 |
 |---|---|---|
-| 发布精度、运行方式 | [Flash 模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash)、[Pro 模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro) | [本地配置目录]([本地源码路径]) |
-| Linear、Indexer、MoE、mHC、Head | [model.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/model.py) | [flash_model.py]([本地源码路径]) |
-| FP8/FP4 quant、GEMM、sparse Attention | [kernel.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/kernel.py) | [flash_kernel.py]([本地源码路径]) |
-| FP4 专家转 FP8、`wo_a` 反量化 | [convert.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/convert.py) | [flash_convert.py]([本地源码路径]) |
-| KV 混合精度、MXFP4 QAT | [技术报告](https://arxiv.org/html/2606.19348) | [本地报告]([本地源码路径]) |
+| 发布精度、运行方式 | [Flash 模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash)、[Pro 模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro) | [官方配置与推理目录](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/tree/60d8d70770c6776ff598c94bb586a859a38244f1/inference) |
+| Linear、Indexer、MoE、mHC、Head | [model.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/model.py) | [flash_model.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py#L108) |
+| FP8/FP4 quant、GEMM、sparse Attention | [kernel.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/kernel.py) | [flash_kernel.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/kernel.py#L105) |
+| FP4 专家转 FP8、`wo_a` 反量化 | [convert.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/inference/convert.py) | [flash_convert.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/convert.py#L137) |
+| KV 混合精度、MXFP4 QAT | [技术报告](https://arxiv.org/html/2606.19348) | [技术报告](https://arxiv.org/html/2606.19348) |
 
 原版参考模型本地快照对应官方 Flash revision `60d8d70770c6776ff598c94bb586a859a38244f1`；当前 0731 / 0813 服务示例按 2026-10-13 官方页面阅读。在线页面后续可能更新。[返回总文档的量化章节](deepseek-v4-framework.html#v4-quantization)
