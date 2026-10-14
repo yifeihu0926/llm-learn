@@ -1,31 +1,52 @@
-# DeepSeek V4 / V4.1 模型学习文档
+# DS 学习手册
 
-按“完整架构 → 特殊 Block → 具体算子”展开，覆盖本地参考前向的投影、归一化、mHC、Attention、Indexer/selector、MoE、量化、缓存、通信、辅助预测与输出控制。每张机制图配有公式、张量形状与解析。
+以 **V4 Flash** 建立一条完整计算主线，再比较 **V4 Pro / V4.1 Flash**。新版将共同机制合并、统一张量符号，并把动画放进对应章节。
 
-## 文档入口
+## 从这里开始
 
-| 文档 | 图示与交互 | 下载离线 HTML |
-|---|---|---|
-| V4 Flash | 9 张机制图；SWA/CSA/HCA 三组动画；完整 MTP | [deepseek-v4-flash.html](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/deepseek-v4-flash.html) |
-| V4 Pro | 9 张机制图；SWA/CSA/HCA 三组动画；本模型配置与 MTP | [deepseek-v4-pro.html](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/deepseek-v4-pro.html) |
-| V4.1 Flash | 14 张机制图；40 层共享状态交互；Engram、视觉塔与 DSpark | [deepseek-v41-flash.html](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/deepseek-v41-flash.html) |
-| 三模型综合对照 | 全局架构、机制比较、预算、推理框架与训练 | [deepseek-v4-framework.html](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/deepseek-v4-framework.html) |
+- **[在线阅读正文](ds-handbook.md)**：按顺序编排的 11 章 Markdown。
+- **[下载交互手册](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/ds-handbook.html)**：单文件 HTML，下载后双击打开；8 组交互计算可离线播放，不含视频。
+- [个人工作笔记](notes/)：与模型手册分开保存。
 
-下载后用浏览器打开 HTML。图形、公式、字体和动画均已内嵌，无需安装依赖或启动服务；阅读正文不需要联网，源码与资料链接需要联网。综合版中可以跳转到三份独立版，将四个 HTML 下载到同一目录即可。
+## 新版框架
 
-## 资料范围
+| 章节 | 要解决的问题 |
+|---|---|
+| 01 阅读地图与张量语言 | token 轴、特征轴和四种权重分别是什么？ |
+| 02 整体模型与 mHC | 一个完整 Block 怎样计算和回写残差？ |
+| 03 Attention | SWA、CSA、HCA 分别读取哪些 KV？ |
+| 04 Compressor | gate 怎样逐维压缩，短期状态保存多久？ |
+| 05 Indexer | 点积、头权重、因果 mask 和 top-k 怎样衔接？ |
+| 06 MoE | 查表路由、选择偏置、混合系数和专家怎样计算？ |
+| 07 MegaMoE | 路由张量怎样派发、执行，再按 token 合并？ |
+| 08 量化与缓存 | 逻辑 shape、数值精度与物理字节如何分别计算？ |
+| 09 V4.1 增量 | 跨层共享、CED、Engram、DSpark、视觉改变了什么？ |
+| 10 生成、服务与训练 | 模型前向怎样放进完整运行流程？ |
+| 11 源码与维护 | 到哪里验证结论，以后怎样补充而不重复？ |
 
-文档版本：2026-10-10。推理文件链接固定到与本地内容逐字节一致的官方提交；vLLM 固定为 `c91dccc08044b1269f351ceec13070fe8f075e10`，SGLang 固定为 `bb9a820f09f97480bfc6d07564fb2b691b8857a3`，Transformers 使用 5.18.0。
+版本：2026-10-14。每章包含适用范围、输入输出、计算步骤、示例与固定版本源码链接。动画为缩小后的教学数据，不代表 checkpoint 实际数值或 GPU 性能。
 
-参数量按原始构造器 shape 统计，缓存按明确的 BF16 数组或生产打包格式计算。训练设置采用官方报告披露。CPU 边界与公式检查不代表完整权重质量、GPU kernel 数值或吞吐测量。
+## 获取与更新
 
-字体与公式组件许可见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+```bash
+git clone https://github.com/yifeihu0926/llm-learn.git
+cd llm-learn
+```
 
-## 2026-10-14 更新资料
+已经克隆过：
 
-- [V4 量化详解](deepseek-v4-quantization.html)：配套 [Markdown](deepseek-v4-quantization.md) 和量化图示。
-- [MegaMoE 完整交互讲解](mega-moe-full.html)：配套 [讲解稿](mega-moe-full-narration.txt)、字幕和流程配图。
-- 四份架构与算子文档均有同名 Markdown。
-- 补充张量数据流、代码调用结构、官方训练资料和推理框架对比笔记。
+```bash
+git pull --ff-only
+```
 
-本次仅上传文档、HTML 交互动画及配图，不包含视频文件。建议 git clone 或下载整个仓库，保持 HTML 与配图在同一目录。GitHub 文件页不直接执行 HTML，可下载后用浏览器打开。教学动画中的示例时序不代表 GPU 实测性能。
+<details>
+<summary>历史资料与旧版入口（备查）</summary>
+
+旧版按不同时间和模型分别生成，存在重复和部分失效的本机链接。日常学习以新版手册为入口，旧版用于追踪历史分析，不继续平行维护多套正文。
+
+- [旧综合版](deepseek-v4-framework.html)
+- [旧 Flash](deepseek-v4-flash.html) · [旧 Pro](deepseek-v4-pro.html) · [旧 V4.1](deepseek-v41-flash.html)
+- [旧量化专题](deepseek-v4-quantization.html) · [旧 MegaMoE 动画](mega-moe-full.html)
+- [第三方组件许可](THIRD-PARTY-NOTICES.md)（旧版字体与公式组件；新版正文与交互不依赖这些组件）
+
+</details>
