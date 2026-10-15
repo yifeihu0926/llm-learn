@@ -1,0 +1,360 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MegaMoE · buffer 之后的源码导读</title><style>*{box-sizing:border-box}html{color-scheme:dark;scroll-behavior:smooth}body{margin:0;background:#000;color:#c8c8d0;font:16px/1.95 'PingFang SC',system-ui,sans-serif}a{color:#65c9e0;text-decoration:none}a:hover{color:#9ce3f0}.top{display:flex;justify-content:space-between;border-bottom:1px solid #25252d;padding:19px 36px;font-size:12px;letter-spacing:2px;color:#9696a5}.top span:first-child{color:#e9edf4}.layout{display:grid;grid-template-columns:210px minmax(0,1100px);gap:46px;max-width:1450px;margin:auto;padding:55px 35px 100px}nav{position:sticky;top:30px;align-self:start;font-size:13px}nav small{color:#777787;letter-spacing:2px}nav a{display:block;color:#9595a5;border-left:1px solid #292931;padding:9px 15px;line-height:1.65}nav a:first-of-type{margin-top:18px}nav a.active{border-color:#78d6b1;color:#78d6b1}main{min-width:0}.hero{border-bottom:1px solid #292931;padding-bottom:32px}.kicker{color:#78d6b1;font-size:12px;letter-spacing:3px}.hero h1{font:64px/1.15 Georgia,serif;color:#f4f4f7;letter-spacing:-1px;margin:25px 0 15px}.hero h1 span{color:#8f94a4;font-size:43px}.subtitle{font-size:25px;line-height:1.55;color:#edf0f7;margin:24px 0 13px}.hero p{color:#9999a5;max-width:790px}.legend{display:flex;flex-wrap:wrap;gap:22px;margin-top:24px;font-size:12px}.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px}h2{font-size:27px;font-weight:500;color:#f3f3f7;line-height:1.5;margin:76px 0 25px;padding-top:24px;border-top:1px solid #292931;scroll-margin-top:28px}h3{font-size:20px;font-weight:500;color:#e2e6ee;margin:40px 0 15px;line-height:1.6}p{margin:16px 0}strong{font-weight:500;color:#f0f0f4}code{font:13px/1.8 'SF Mono',Menlo,monospace;color:#b9c7d6;overflow-wrap:anywhere}p code,td code,li code{background:#14141b;border-radius:3px;padding:2px 5px}pre{background:#0b0b10;border-left:2px solid #32323e;padding:21px 24px;margin:24px 0;overflow:auto;line-height:1.7}pre code{overflow-wrap:normal}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.8;margin:24px 0}th{text-align:left;color:#ececf1;font-weight:500;background:#101015}th,td{padding:13px 14px;border-bottom:1px solid #29292f;vertical-align:top}tr:nth-child(even) td{background:#08080c}.table-scroll{overflow:auto}footer{border-top:1px solid #292931;margin-top:70px;padding-top:25px;font-size:12px;color:#8b8b9b}@media(max-width:1200px){.layout{grid-template-columns:1fr;max-width:1110px;padding:40px 25px}nav{display:none}}@media(max-width:600px){body{font-size:15px}.top{padding:17px 18px}.top span:last-child{display:none}.layout{padding:28px 18px 60px}.hero h1{font-size:45px}.hero h1 span{font-size:31px}.subtitle{font-size:21px}h2{font-size:24px}pre{padding:18px}table{min-width:700px}.source-visual{overflow:auto}.source-visual svg{min-width:720px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}.source-visual{margin:30px 0;padding:0;border:1px solid #292933;background:#08080d;border-radius:10px;overflow:hidden}.source-visual svg{width:100%;height:auto;display:block}.source-visual figcaption{padding:18px 25px;color:#999caf;font-size:14px;line-height:1.8;min-height:82px;border-top:1px solid #272731}.source-controls{display:flex;gap:10px;padding:18px 25px;flex-wrap:wrap}.source-controls button{font:13px 'PingFang SC',system-ui,sans-serif;color:#999caf;background:#111119;border:1px solid #30303d;border-radius:4px;padding:10px 15px;cursor:pointer}.source-controls button[aria-pressed=true]{color:#65c9e0;border-color:#65c9e0;background:#101c23}.source-controls button:focus-visible,input:focus-visible{outline:2px solid #65c9e0;outline-offset:4px}[data-chain-stage]{opacity:.48;transition:opacity .18s}[data-chain-stage].selected{opacity:1}.row-inspector{display:flex;align-items:center;flex-wrap:wrap;gap:22px;padding:18px 25px;font-size:14px;color:#bba0e4}.row-inspector input{flex:1;min-width:120px;accent-color:#bba0e4}.row-inspector output{font-family:Menlo,monospace;color:#eee}.source-layout figcaption{min-height:0}@media(prefers-reduced-motion:reduce){[data-chain-stage]{transition:none}}</style></head><body><header class="top"><span>DEEPGEMM / SOURCE WALKTHROUGH</span><span>2026.10.14 · SM100 / NVLINK</span></header><div class="layout"><nav aria-label="章节导航"><small>CONTENTS / 目录</small><a href="#source-section-0">1. 下一段源码处在什么位置</a><a href="#source-section-1">2. `transform_weights_for_mega_moe()` 做什么</a><a href="#source-section-5">3. 每轮怎样调用 `fp8_fp4_mega_moe()`</a><a href="#source-section-8">4. C++ API 和 SM100 host 做了什么</a><a href="#source-section-12">5. persistent kernel 的角色与调度</a><a href="#source-section-13">6. L1 → SwiGLU → L2 的数值路径</a><a href="#source-section-16">7. 怎样把源码和 overlap 动画对应起来</a><a href="#source-section-17">8. 回到源码时的阅读顺序</a><a href="../archive/deepseek-v4-framework.html#section-46">返回总文档 ↗</a></nav><main><section class="hero"><div class="kicker">LAYOUT · LAUNCH · SCHEDULER · EPILOGUE</div><h1>MegaMoE<br><span>After the Buffer</span></h1><div class="subtitle">buffer 之后，沿源码看专家如何计算</div><p>权重怎样变成可消费的布局，tile 怎样变成任务，以及 L1、SwiGLU、L2 怎样在一条 persistent kernel 中推进。</p><div class="legend"><span><i style="background:#efb568"></i>gate / 权重准备</span><span><i style="background:#65c9e0"></i>up / 输入与通信</span><span><i style="background:#bba0e4"></i>scale / host 配置</span><span><i style="background:#78d6b1"></i>kernel / 输出</span></div><p style="font-size:12px;margin-top:20px">固定源码 DeepGEMM <a href="https://github.com/deepseek-ai/DeepGEMM/tree/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7">057ca596</a> · SM100 FP8/FP4 NVLink 路径</p></section><h2 id="source-section-0">1. 下一段源码处在什么位置</h2>
+<p>buffer 准备完成之后，要让 GPU 高效执行专家计算，还需要准备 <strong>权重布局、本轮输入和输出、tile 描述、任务流以及线程间依赖</strong>。这里的 L1 是合并 gate/up 的第一段专家线性计算，L2 是 down projection；它们不是 GPU 的 L1/L2 cache。</p>
+<figure class="source-visual source-chain"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 646" role="img" aria-labelledby="mega-source-chain-title mega-source-chain-desc" style="font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><title id="mega-source-chain-title">MegaMoE buffer 之后的调用链</title><desc id="mega-source-chain-desc">加载时转换专家权重，每轮传入输入路由和输出，经过 C++ 检查、TMA JIT host 启动一个融合 CUDA kernel。</desc><rect width="1080" height="646" rx="10" fill="#08080d"></rect><text x="34" y="42" font-size="13" fill="#9295a7">01 / TWO PREPARATIONS, ONE KERNEL</text><text x="34" y="89" font-size="23" fill="#e7e9f0">加载时：本地专家权重</text><text x="34" y="117" font-size="16" fill="#9295a7">每层保存自己的布局转换结果；推理期间参数保持固定。</text><rect x="34" y="144" width="280" height="85" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="54" y="174" font-size="19" fill="#efb568">W_gate / W_up · W_down</text><text x="54" y="202" font-size="16" fill="#9295a7">已量化 data + packed scale</text><path d="M314 185 L350 185" fill="none" stroke="#efb568" stroke-width="1.6"></path><path d="M344 181 L350 185 L344 189" fill="none" stroke="#efb568" stroke-width="1.6"></path><rect x="350" y="144" width="330" height="85" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="370" y="174" font-size="17" fill="#efb568">transform_weights_for_mega_moe</text><text x="370" y="202" font-size="16" fill="#9295a7">L1 行交错；L1 / L2 scale 重排</text><path d="M680 185 L715 185" fill="none" stroke="#efb568" stroke-width="1.6"></path><path d="M709 181 L715 185 L709 189" fill="none" stroke="#efb568" stroke-width="1.6"></path><rect x="715" y="144" width="331" height="85" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="735" y="174" font-size="19" fill="#efb568">l1_ready / l2_ready</text><text x="735" y="202" font-size="16" fill="#9295a7">独立于 symmetric buffer 的权重</text><text x="34" y="280" font-size="23" fill="#e7e9f0">每轮：T 个有效 token</text><text x="34" y="307" font-size="16" fill="#9295a7">Router 与输入量化由调用者完成；y 的第一维决定本轮 T。</text><g data-chain-stage="0"><rect x="34" y="337" width="232" height="104" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="52" y="367" font-size="19" fill="#65c9e0">01 · Python</text><text x="52" y="397" font-size="16" fill="#e7e9f0">填 x / scale / routes</text><text x="52" y="423" font-size="14" fill="#9295a7">传 y 与 prepared weights</text></g><path d="M266 389 L290 389" fill="none" stroke="#65c9e0" stroke-width="1.6"></path><path d="M284 385 L290 389 L284 393" fill="none" stroke="#65c9e0" stroke-width="1.6"></path><g data-chain-stage="1"><rect x="294" y="337" width="232" height="104" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="312" y="367" font-size="19" fill="#65c9e0">02 · C++ API</text><text x="312" y="397" font-size="16" fill="#e7e9f0">T = y.size(0)</text><text x="312" y="423" font-size="14" fill="#9295a7">检查配置；切 buffer views</text></g><path d="M526 389 L550 389" fill="none" stroke="#65c9e0" stroke-width="1.6"></path><path d="M544 385 L550 389 L544 393" fill="none" stroke="#65c9e0" stroke-width="1.6"></path><g data-chain-stage="2"><rect x="554" y="337" width="232" height="104" rx="7" fill="#0d0d14" stroke="#bba0e4"></rect><text x="572" y="367" font-size="19" fill="#bba0e4">03 · SM100 host</text><text x="572" y="397" font-size="16" fill="#e7e9f0">tile + TMA + JIT</text><text x="572" y="423" font-size="14" fill="#9295a7">2-CTA cluster launch</text></g><path d="M786 389 L810 389" fill="none" stroke="#bba0e4" stroke-width="1.6"></path><path d="M804 385 L810 389 L804 393" fill="none" stroke="#bba0e4" stroke-width="1.6"></path><g data-chain-stage="3"><rect x="814" y="337" width="232" height="104" rx="7" fill="#0d0d14" stroke="#78d6b1"></rect><text x="832" y="367" font-size="19" fill="#78d6b1">04 · CUDA kernel</text><text x="832" y="397" font-size="16" fill="#e7e9f0">persistent task stream</text><text x="832" y="423" font-size="14" fill="#9295a7">通信 / MMA / epilogue</text></g><path d="M880 229 V318 H151 V337" fill="none" stroke="#efb568" stroke-width="1.5" stroke-dasharray="5 5"></path><path d="M145 331 L151 337 L157 331" fill="none" stroke="#efb568" stroke-width="1.5"></path><text x="34" y="485" font-size="18" fill="#78d6b1">kernel 内同时推进不同 tile</text><rect x="34" y="510" width="232" height="74" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="52" y="539" font-size="17" fill="#65c9e0">dispatch</text><text x="52" y="565" font-size="15" fill="#9295a7">metadata / pull</text><rect x="294" y="510" width="232" height="74" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="312" y="539" font-size="17" fill="#bba0e4">loaders + MMA</text><text x="312" y="565" font-size="15" fill="#9295a7">A / B / scale / GEMM</text><rect x="554" y="510" width="232" height="74" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="572" y="539" font-size="17" fill="#efb568">L1 epilogue</text><text x="572" y="565" font-size="15" fill="#9295a7">SwiGLU → FP8</text><rect x="814" y="510" width="232" height="74" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="832" y="539" font-size="17" fill="#78d6b1">L2 / combine</text><text x="832" y="565" font-size="15" fill="#9295a7">BF16 slots → y</text><text x="34" y="615" font-size="15" fill="#9295a7">箭头表示调用与数据依赖；下方角色并行工作，不是四次顺序 kernel launch。</text></svg><div class="source-controls" role="group" aria-label="选择调用阶段"><button type="button" data-source-stage="0" aria-pressed="true">01 · Python</button><button type="button" data-source-stage="1" aria-pressed="false">02 · C++ API</button><button type="button" data-source-stage="2" aria-pressed="false">03 · SM100 host</button><button type="button" data-source-stage="3" aria-pressed="false">04 · CUDA kernel</button></div><figcaption id="source-stage-desc" aria-live="polite"></figcaption></figure>
+<p><strong>读图。</strong> 权重转换通常在加载模型时完成；每轮只准备新输入和路由，分配或复用 <code>y[T,H]</code>，再调用后端。Python wrapper 转发参数，C++ API 检查配置，SM100 host 选择 tile 并建立 TMA descriptor，CUDA persistent kernel 才开始通信和计算。</p>
+<p>记号：<code>P</code> 是 rank 数，<code>E</code> 是全局路由专家数，<code>E_local=E/P</code>；<code>T</code> 是本 rank 本轮有效 token 数，<code>T_cap</code> 是 buffer 容量，<code>H</code> 是 hidden，<code>I</code> 是单个专家的 intermediate。top-k 用 <code>K_top</code>，与矩阵乘法的 K 维分开。</p>
+<table>
+<thead>
+<tr>
+<th>逻辑张量</th>
+<th>形状</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输入 <code>x</code></td>
+<td><code>[T,H]</code></td>
+<td>本轮 token 特征</td>
+</tr>
+<tr>
+<td><code>l1_weights</code> 数据</td>
+<td><code>[E_local,2I,H]</code></td>
+<td>合并 gate/up 的专家权重</td>
+</tr>
+<tr>
+<td><code>l2_weights</code> 数据</td>
+<td><code>[E_local,H,I]</code></td>
+<td>down 权重</td>
+</tr>
+<tr>
+<td><code>topk_idx / topk_weights</code></td>
+<td><code>[T,K_top]</code></td>
+<td>专家 ID 与每 token 路由系数</td>
+</tr>
+<tr>
+<td>输出 <code>y</code></td>
+<td><code>[T,H]</code></td>
+<td>本 rank token 的最终 MoE 输出</td>
+</tr>
+</tbody>
+</table>
+<p>权重保存在专家 owner 的本地显存，独立于对称 buffer。一次推理前向不会更新专家参数；同一个 buffer 可以为兼容布局的调用复用，各层传入各层权重。</p>
+<h2 id="source-section-1">2. <code>transform_weights_for_mega_moe()</code> 做什么</h2>
+<p>调用形式是 <code>l1_ready, l2_ready = transform_weights_for_mega_moe(l1_weights, l2_weights)</code>。这个函数准备 GPU 所需的物理布局。低位路径接收 <code>(data, scale)</code> tuple，数据应已量化，scale 应已准备为要求的 packed 布局；它不在这里学习权重或计算量化 scale。</p>
+<p>把低位分支压缩成下面四行，就能看清处理顺序：</p>
+<pre><code class="language-python">l1_w = _interleave_weights(l1_weights[0])
+l1_sf = _transpose_sf_for_utccp(_interleave_weights(l1_weights[1]))
+l1_ready = (l1_w, l1_sf)
+l2_ready = (l2_weights[0], _transpose_sf_for_utccp(l2_weights[1]))
+</code></pre>
+<p><code>[0]</code> 是量化数据，<code>[1]</code> 是 scale。L1 同时改变 data 与 scale 行序；L2 不做 gate/up 交错，所以只转换 scale。返回的 tuple 保存起来，供后续前向重复使用。</p>
+<h3 id="source-section-2">2.1 第一件事：gate/up 按 8 行交错</h3>
+<p>先看 <code>_interleave_weights(t, gran=8)</code>。普通合并权重沿 N/输出维先放完整 gate，再放完整 up：</p>
+<pre><code class="language-text">转换前：[G0 … G(I-1) | U0 … U(I-1)]
+转换后：[G0 … G7 | U0 … U7 | G8 … G15 | U8 … U15 | …]
+</code></pre>
+<figure class="source-visual source-layout"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 704" role="img" aria-labelledby="mega-source-layout-title mega-source-layout-desc" style="font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><title id="mega-source-layout-title">MegaMoE gate/up 八行交错和 scale UTCCP 重排</title><desc id="mega-source-layout-desc">gate 和 up 以八行为单位交错，scale 使用相同行序后，再在一百二十八行块内进行四乘三十二到三十二乘四的重排。</desc><rect width="1080" height="704" rx="10" fill="#08080d"></rect><text x="34" y="42" font-size="13" fill="#9295a7">02 / ROW ORDER &amp; SCALE ORDER</text><text x="34" y="86" font-size="23" fill="#e7e9f0">L1：按 8 行把 gate / up 配成对</text><text x="34" y="115" font-size="16" fill="#9295a7">I = 32 的行序示意；每块代表 8 行，K 维内容保持不变。</text><text x="34" y="157" font-size="16" fill="#9295a7">原来</text><text x="34" y="255" font-size="16" fill="#9295a7">转换后</text><rect x="122" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="173.5" y="163" font-size="15" fill="#efb568" text-anchor="middle">G0–7</text><rect x="236" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="287.5" y="163" font-size="15" fill="#efb568" text-anchor="middle">G8–15</text><rect x="350" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="401.5" y="163" font-size="15" fill="#efb568" text-anchor="middle">G16–23</text><rect x="464" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="515.5" y="163" font-size="15" fill="#efb568" text-anchor="middle">G24–31</text><rect x="578" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="629.5" y="163" font-size="15" fill="#65c9e0" text-anchor="middle">U0–7</text><rect x="692" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="743.5" y="163" font-size="15" fill="#65c9e0" text-anchor="middle">U8–15</text><rect x="806" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="857.5" y="163" font-size="15" fill="#65c9e0" text-anchor="middle">U16–23</text><rect x="920" y="133" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="971.5" y="163" font-size="15" fill="#65c9e0" text-anchor="middle">U24–31</text><g data-layout-block="0"><rect x="122" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="173.5" y="261" font-size="15" fill="#efb568" text-anchor="middle">G0–7</text></g><g data-layout-block="0"><rect x="236" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="287.5" y="261" font-size="15" fill="#65c9e0" text-anchor="middle">U0–7</text></g><g data-layout-block="1"><rect x="350" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="401.5" y="261" font-size="15" fill="#efb568" text-anchor="middle">G8–15</text></g><g data-layout-block="1"><rect x="464" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="515.5" y="261" font-size="15" fill="#65c9e0" text-anchor="middle">U8–15</text></g><g data-layout-block="2"><rect x="578" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="629.5" y="261" font-size="15" fill="#efb568" text-anchor="middle">G16–23</text></g><g data-layout-block="2"><rect x="692" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="743.5" y="261" font-size="15" fill="#65c9e0" text-anchor="middle">U16–23</text></g><g data-layout-block="3"><rect x="806" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#efb568"></rect><text x="857.5" y="261" font-size="15" fill="#efb568" text-anchor="middle">G24–31</text></g><g data-layout-block="3"><rect x="920" y="231" width="103" height="48" rx="7" fill="#0d0d14" stroke="#65c9e0"></rect><text x="971.5" y="261" font-size="15" fill="#65c9e0" text-anchor="middle">U24–31</text></g><path d="M174 183 V228 M288 183 V205 H402 V228 M402 183 V201 H630 V228 M516 183 V197 H858 V228" fill="none" stroke="#efb568" stroke-opacity=".38"></path><path d="M630 183 V209 H288 V228 M744 183 V213 H516 V228 M858 183 V217 H744 V228 M972 183 V228" fill="none" stroke="#65c9e0" stroke-opacity=".38"></path><text x="122" y="310" font-size="16" fill="#9295a7">data 与 L1 scale 先做同一行交错；否则量化权重会配上别行的 scale。</text><path d="M34 340 L1046 340" fill="none" stroke="#30303c" stroke-width="1.6"></path><text x="34" y="385" font-size="23" fill="#e7e9f0">Scale：每 128 行做 4 × 32 → 32 × 4</text><text x="34" y="413" font-size="16" fill="#9295a7">以下 r 是完成 gate/up 交错后、UTCCP 重排之前的块内行号。</text><text x="34" y="458" font-size="16" fill="#bba0e4">4 组，每组 32 行</text><rect x="34" y="476" width="240" height="32" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="52" y="498" font-size="16" fill="#bba0e4">r = 0 … 31</text><rect x="34" y="514" width="240" height="32" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="52" y="536" font-size="16" fill="#bba0e4">r = 32 … 63</text><rect x="34" y="552" width="240" height="32" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="52" y="574" font-size="16" fill="#bba0e4">r = 64 … 95</text><rect x="34" y="590" width="240" height="32" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="52" y="612" font-size="16" fill="#bba0e4">r = 96 … 127</text><path d="M295 548 L340 548" fill="none" stroke="#bba0e4" stroke-width="1.6"></path><path d="M334 544 L340 548 L334 552" fill="none" stroke="#bba0e4" stroke-width="1.6"></path><text x="350" y="466" font-size="16" fill="#bba0e4">新物理排列</text><rect x="350" y="483" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="380.5" y="504" font-size="15" fill="#bba0e4" text-anchor="middle">0</text><rect x="417" y="483" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="447.5" y="504" font-size="15" fill="#bba0e4" text-anchor="middle">32</text><rect x="484" y="483" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="514.5" y="504" font-size="15" fill="#bba0e4" text-anchor="middle">64</text><rect x="551" y="483" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="581.5" y="504" font-size="15" fill="#bba0e4" text-anchor="middle">96</text><rect x="350" y="517" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="380.5" y="538" font-size="15" fill="#bba0e4" text-anchor="middle">1</text><rect x="417" y="517" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="447.5" y="538" font-size="15" fill="#bba0e4" text-anchor="middle">33</text><rect x="484" y="517" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="514.5" y="538" font-size="15" fill="#bba0e4" text-anchor="middle">65</text><rect x="551" y="517" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="581.5" y="538" font-size="15" fill="#bba0e4" text-anchor="middle">97</text><rect x="350" y="551" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="380.5" y="572" font-size="15" fill="#bba0e4" text-anchor="middle">2</text><rect x="417" y="551" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="447.5" y="572" font-size="15" fill="#bba0e4" text-anchor="middle">34</text><rect x="484" y="551" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="514.5" y="572" font-size="15" fill="#bba0e4" text-anchor="middle">66</text><rect x="551" y="551" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="581.5" y="572" font-size="15" fill="#bba0e4" text-anchor="middle">98</text><rect x="350" y="585" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="380.5" y="606" font-size="15" fill="#bba0e4" text-anchor="middle">…</text><rect x="417" y="585" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="447.5" y="606" font-size="15" fill="#bba0e4" text-anchor="middle">…</text><rect x="484" y="585" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="514.5" y="606" font-size="15" fill="#bba0e4" text-anchor="middle">…</text><rect x="551" y="585" width="61" height="29" rx="7" fill="#0d0d14" stroke="#30303c"></rect><text x="581.5" y="606" font-size="15" fill="#bba0e4" text-anchor="middle">…</text><rect x="654" y="476" width="392" height="146" rx="7" fill="#0d0d14" stroke="#bba0e4"></rect><text x="675" y="509" font-size="17" fill="#bba0e4">原行 r → 新物理行 p</text><text x="675" y="549" font-size="17" fill="#e7e9f0">p = (r % 32) × 4 + ⌊r / 32⌋</text><text x="675" y="586" font-size="15" fill="#9295a7">这改变 scale 行序，不改变 G = 32。</text><text x="34" y="670" font-size="16" fill="#9295a7">8 = 分支交错粒度</text><text x="367" y="670" font-size="16" fill="#9295a7">32 = K 维量化组长</text><text x="712" y="670" font-size="16" fill="#9295a7">128 = scale 行重排块</text></svg><div class="row-inspector"><label for="scale-row">选择 scale 原行 <output id="scale-r">0</output></label><input id="scale-row" type="range" min="0" max="127" value="0" step="1"><span>新物理行 <output id="scale-p">0</output></span></div><figcaption>行号工具仅检查重排映射；行内 packed UE8M0 字节保持原样。</figcaption></figure>
+<p><strong>读图。</strong> 图中用 <code>I=32</code> 缩略显示 gate/up 的八行分组；这个图只演示行交错，不是完整 GPU 配置。每个橙色块是 8 行 gate，每个蓝色块是对应的 8 行 up。变换保持形状和每行内容，只改变行顺序。</p>
+<p><strong>解析源码中的 reshape / stack。</strong> 对 3D 权重 <code>[g,n,*rest]</code>，<code>half=n/2</code>：先取前半 gate、后半 up，各自 reshape 为 <code>[g,half/8,8,*rest]</code>；在中间插入大小为 2 的分支轴，再展平回原 shape。2D shared 权重先临时补上 group 维，最后去掉。<code>empty_like(...).copy_(...)</code> 产生实际重排后的 tensor，原始权重保持原样。</p>
+<p>交错布局让 epilogue 直接配对消费 gate/up，计算 <code>SiLU(gate)*up</code>。行交错是在为这一消费方式准备数据；L1 的 N tile 同时覆盖两支，SwiGLU 输出宽度缩为一半。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/mega/__init__.py#L112">源码：Python helper</a></p>
+<h3 id="source-section-3">2.2 第二件事：scale 必须跟着变，再适配 UTCCP</h3>
+<p>L1 的数据和 scale 都先做同样的 gate/up 行交错，保持量化数据与原 scale 的对应关系。随后 <code>_transpose_sf_for_utccp()</code> 把每个 128 行块视为 <code>4×32</code>，转成 <code>32×4</code>，再展平。对块内原行号 r：</p>
+<pre><code class="language-text">新物理行位置 = (r % 32) × 4 + floor(r / 32)
+新位置读取的原行号：0, 32, 64, 96, 1, 33, 65, 97, …
+</code></pre>
+<p>这个函数要求 scale 为 INT32、维数为 2 或 3，MN 能被 128 整除。它重排的是 <strong>scale 行的物理顺序</strong>，没有把 N/K 的逻辑维度对调，也没有改成新的量化分组。kernel 后续通过匹配的 scale 搬运布局使用这些值；不能把重排后的 scale 当作普通逐行 scale 直接相乘。</p>
+<p>UTCCP 是这里将 scale 从 shared memory 搬到 Tensor Memory 的相关指令路径。Python 先把 scale 排成该路径需要的格式；真正的复制在 CUDA 内核中发生。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/mega/__init__.py#L132">scale helper</a>、<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L886">设备 scale 搬运</a></p>
+<table>
+<thead>
+<tr>
+<th>传入对象</th>
+<th>data 怎么处理</th>
+<th>scale 怎么处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>低位 L1 tuple</td>
+<td>gate/up 八行交错</td>
+<td>同样交错，再做 128 行内 UTCCP 重排</td>
+</tr>
+<tr>
+<td>低位 L2 tuple</td>
+<td>保持原 data 对象</td>
+<td>做 UTCCP 重排</td>
+</tr>
+<tr>
+<td>BF16 L1</td>
+<td>gate/up 八行交错</td>
+<td>没有低位 scale tuple</td>
+</tr>
+<tr>
+<td>BF16 L2</td>
+<td>保持原对象</td>
+<td>没有低位 scale tuple</td>
+</tr>
+</tbody>
+</table>
+<p>BF16 行说明该布局 helper 的另一分支；执行 BF16 权重要使用对应的 <code>bf16_mega_moe()</code> 入口。</p>
+<p>本机直接执行保存的官方 Python helper，确认了 2D/3D 行顺序、原权重保留、scale 逆重排对应关系，并用 FP32 CPU 矩阵运算确认 gate/up 配对后的 SwiGLU 代数一致。它验证布局关系，没有执行 CUDA GEMM 或量化性能测量。</p>
+<h3 id="source-section-4">2.3 为什么同时看到 8、32、128</h3>
+<table>
+<thead>
+<tr>
+<th>数字</th>
+<th>此处指什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8</td>
+<td>gate/up 输出行的交错粒度</td>
+</tr>
+<tr>
+<td>32</td>
+<td>此 MegaMoE FP8/FP4 路径沿 K 的量化分组长度</td>
+</tr>
+<tr>
+<td>128 行</td>
+<td>scale helper 做 <code>4×32→32×4</code> 重排的 MN 块大小</td>
+</tr>
+<tr>
+<td>K/128 个 INT32</td>
+<td>每个 INT32 装 4 个 8 位 UE8M0 scale；4 组×32 值覆盖 128 个数据值</td>
+</tr>
+</tbody>
+</table>
+<p>这条 MegaMoE 接口的 FP8 激活、FP4/FP8 路由权重都使用组长 32。上一份 V4 官方简化参考模型中通用 Linear 的 FP8 激活组长 128、FP8 权重 tile 128×128，属于另一套参考执行布局，不能直接传入这里。</p>
+<h2 id="source-section-5">3. 每轮怎样调用 <code>fp8_fp4_mega_moe()</code></h2>
+<p>以下是省略 shared 分支的调用关系示意。<code>x_fp8 / x_sf_packed</code> 应已按本路径的组长和 packing 准备，<code>l1_ready / l2_ready</code> 是上一节转换结果：</p>
+<pre><code class="language-python">buffer.x[:T].copy_(x_fp8)
+buffer.x_sf[:T].copy_(x_sf_packed)
+buffer.topk_idx[:T].copy_(topk_idx)
+buffer.topk_weights[:T].copy_(topk_weights)
+y = torch.empty((T, H), dtype=torch.bfloat16, device="cuda")
+
+deep_gemm.fp8_fp4_mega_moe(
+    y=y,
+    l1_weights=l1_ready,
+    l2_weights=l2_ready,
+    sym_buffer=buffer,
+)
+</code></pre>
+<p><strong>函数边界。</strong> Python wrapper 转发权重、原始 buffer、peer 指针列表、当前 group rank、容量、专家数、top-k 和数学配置。它不在此运行 Router、不量化 x、不自动复制输入，也不自动做权重布局转换。输出写入调用者提供的 <code>y</code>；该 wrapper 没有返回一个新的输出 tensor。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/tests/test_mega_moe.py#L189">官方调用测试</a></p>
+<p>沿 wrapper 往下看，关键参数分成三组：<code>l1/l2_weights</code> 告诉后端用哪些本地参数；<code>sym_buffer.buffer / handle.buffer_ptrs / group.rank()</code> 告诉后端如何定位各 rank 内存；<code>num_max_tokens_per_rank / num_experts / num_topk</code> 描述容量与路由配置。它们一起传给 <code>_C.fp8_fp4_mega_moe()</code>，随后进入 C++。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/mega/__init__.py#L168">Python wrapper</a></p>
+<h3 id="source-section-6">3.1 本轮 token 数来自 <code>y.size(0)</code></h3>
+<p>C++ 的执行 API 从输出第一维取得 T，再检查 <code>T &lt;= T_cap</code>。因此 buffer.x 的第一维表示容量；调用者填前 T 行，并提供恰好 T 行的 y。不同 rank 可以有不同 T，owner 收到的专家 token 数再由 metadata 统计恢复。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/csrc/apis/mega_moe.hpp#L175">C++ API</a></p>
+<p>正确输出契约是本 rank CUDA 上的连续 BF16 <code>[T,H]</code>。设备通过 raw pointer 按这个布局写入；本地读到的 API/host 函数没有逐项检查 y 的 dtype、第二维和 stride，所以不能靠任意形状的 tensor 在这里只通过容量检查来保证正确调用。</p>
+<h3 id="source-section-7">3.2 参数怎么理解</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>l1_weights / l2_weights</code></td>
+<td>本地路由专家的 <code>(data,packed_scale)</code>；可使用此接口接受的 FP4 或 FP8 权重</td>
+</tr>
+<tr>
+<td><code>shared_l1_weights / shared_l2_weights</code></td>
+<td>成对传入可启用融合 shared 分支；此路径的 shared 权重为 2D FP8</td>
+</tr>
+<tr>
+<td><code>recipe=(1,1,32)</code></td>
+<td>本 API 要求的 scale 粒度组合，代码显式只接受该值</td>
+</tr>
+<tr>
+<td><code>activation="swiglu"</code></td>
+<td>指定内核 epilogue 的激活类型，本版本只接受 SwiGLU</td>
+</tr>
+<tr>
+<td><code>activation_clamp=None</code></td>
+<td>在 C++ 中变成 +∞，关闭有限截断；传 0 则是实际的零上限，不是关闭标志</td>
+</tr>
+<tr>
+<td><code>fast_math=True</code></td>
+<td>SwiGLU 使用相应的快速 exp / reciprocal 路径；不能假定与关闭时逐位一致</td>
+</tr>
+<tr>
+<td><code>cumulative_local_expert_recv_stats</code></td>
+<td>可选 INT32 本地专家累计接收计数；保留并累加原值</td>
+</tr>
+</tbody>
+</table>
+<p>权重的数据、scale、shape、物理布局要共同匹配。FP4 data 的物理末维为逻辑 K 的一半，INT32 packed scale 的末维为逻辑 K/128；这两个压缩关系不能当成模型 hidden 变小了。</p>
+<h2 id="source-section-8">4. C++ API 和 SM100 host 做了什么</h2>
+<h3 id="source-section-9">4.1 API 检查与 buffer view</h3>
+<p>API 解开两份权重 tuple，检查 L1/L2 的本地专家数一致、H 一致、L1 输出维为 <code>2I</code>，权重 dtype 一致，scale 满足打包布局；shared 参数成对提供，并根据其 shape 恢复 shared 数。接着根据 peer 指针数推导 P，检查 <code>E=E_local×P</code> 和 raw buffer 字节容量，然后重新切出 tensor views。</p>
+<p>重新切 view 使用同一底层 allocation，没有再拷贝一份 x。创建 buffer 时的 H/I/shared 配置应与本轮权重一致；只有字节数足够并不能证明调用者此前通过旧 view 填到了正确区域。该固定执行入口选择 <code>arch_major==10</code> 的 SM100 host 路径，其余架构走 Unsupported architecture。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/csrc/apis/mega_moe.hpp#L171">API 检查</a></p>
+<h3 id="source-section-10">4.2 tile、TMA descriptor 和 JIT</h3>
+<p>host 根据 P/E、T_cap/T、top-k、H/I 和 ring 容量选择 <code>BLOCK_M/N/K</code>、pipeline stages、搬运尺寸与线程数。<code>BLOCK_M</code> 是一块处理的 token 行数，<code>BLOCK_N</code> 是输出通道 tile，<code>BLOCK_K</code> 是每次加载的归约维分块。</p>
+<p>TMA descriptor 描述数据基址、全局维度/stride、搬运 tile 和 shared-memory swizzle；此时只是描述搬运方式，GPU 尚未据此完成一次 GEMM。权重和 activation 的 scale 有各自的 descriptor。特别是 <strong>L1 output descriptor 指向 l2_acts</strong>：L1 epilogue 已做完 SwiGLU，直接生成 L2 要读的 <code>[ring,I]</code> 激活，不长期保留一个独立 <code>[ring,2I]</code> 完整结果数组。</p>
+<p>host 将尺寸、tile、stage、clamp、fast_math 和权重 dtype 等实例化进 kernel 模板。T 作为运行时参数传入，同时可以影响 heuristic 选出的配置；不能把每次调用 <code>jit-&gt;compile</code> 当成每次重新编译，也不能断言变化的 T 永远不会改变模板选择。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp#L37">SM100 host</a></p>
+<h3 id="source-section-11">4.3 launch 怎样安排 CTA</h3>
+<pre><code class="language-text">grid = 使用的 SM 数
+block_threads = dispatch_threads + 128 + epilogue_threads
+cluster = 2 个 CTA
+dynamic shared memory = config.smem_size
+</code></pre>
+<p>每个 block 持续领取多份任务。这不是一 token 一个 block，也不是一专家一个 block；两个 CTA 组成协作 cluster，按此 SM100 kernel 的 2-CTA MMA 路径运行。线程数量和 tile 的具体取值依所选配置，本文不在缺少 heuristic 实现和 GPU 运行结果时编造某个 batch 的确数。</p>
+<h2 id="source-section-12">5. persistent kernel 的角色与调度</h2>
+<p>设 <code>D=dispatch_threads/32</code>。每个 CTA 的 warp 按下面的范围分工；MMA 和 scheduler 主循环仅由 cluster leader CTA 发起。</p>
+<table>
+<thead>
+<tr>
+<th>warp</th>
+<th>角色</th>
+<th>源码入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;D</code></td>
+<td>发布 metadata、拉取远端 token、末尾清理控制区</td>
+<td>kernel 342</td>
+</tr>
+<tr>
+<td><code>D</code></td>
+<td>本地 activation 与 scale 的 TMA loader</td>
+<td>kernel 690</td>
+</tr>
+<tr>
+<td><code>D+1</code></td>
+<td>本地专家权重与 scale 的 TMA loader</td>
+<td>kernel 756</td>
+</tr>
+<tr>
+<td><code>D+2</code></td>
+<td>MMA issuer，完成归约维计算</td>
+<td>kernel 819</td>
+</tr>
+<tr>
+<td><code>D+3</code></td>
+<td>scheduler，产生双缓冲任务信息</td>
+<td>kernel 939</td>
+</tr>
+<tr>
+<td><code>&gt;=D+4</code></td>
+<td>epilogue：SwiGLU/量化、L2 写回、最终 combine</td>
+<td>kernel 946</td>
+</tr>
+</tbody>
+</table>
+<p><strong>任务是 tile。</strong> TaskInfo 标识专家、L1/L2 阶段、M 块、N cluster、逻辑 pool 位置和有效 token 行数。物理 ring 位置由 pool 索引取模得到。一个 N cluster 包含两个相邻的 N tile，分别交给两个 CTA。scheduler 产生同一任务流，activation loader、weight loader、MMA 与 epilogue 各自消费；dispatch 独立推进 metadata 与输入拉取。</p>
+<p>任务双缓冲允许准备下一份 TaskInfo，同时消费当前任务。epilogue 等到 MMA 结果后即可释放 TaskInfo 元数据槽；输入 ring、中间激活 ring 与 TMEM 另有各自的复用条件，不能把这次释放理解成所有数据都已写回。</p>
+<p><strong>领取任务与数据就绪分开。</strong> scheduler 先给 routed L1 做 warmup，再组织 L2/L1 的交替领取；它发出 L2 任务时的计数条件描述前序 L1 任务已经被领取，不代表每个 L1 epilogue 已经写完。activation loader 还要检查实际就绪状态：routed L1 等输入 M 块齐备；routed L2 按当前 K 分块等待相应 L1 输出 bitmap。shared L2 使用其对应的全 N 完成计数。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/scheduler/mega_moe.cuh">调度器</a>、<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L690">设备角色</a></p>
+<p>融合 shared 时，先发 shared L1，它直接读本地输入，不依赖 routed dispatch 的齐备信号。shared L2 的任务量若不超过一波 cluster 则提前发出，否则放在 routed 任务之后。</p>
+<p>同一次 kernel 内，设完整 pool 索引为 b、ring 容量为 R，则物理槽是 <code>b % R</code>、代际是 <code>floor(b/R)</code>。代际状态防止把该槽上一代的 ready 当作当前数据已就绪。调度的“可以领取”、数据的“已经写完”和内存的“消费者可见”是三个相关的条件。</p>
+<h2 id="source-section-13">6. L1 → SwiGLU → L2 的数值路径</h2>
+<p>忽略 clamp、量化与浮点舍入，理想公式为：</p>
+<pre><code class="language-text">gate = x · W_gateᵀ
+up   = x · W_upᵀ
+a    = SiLU(gate) ⊙ up × route_weight
+contribution = a · W_downᵀ
+</code></pre>
+<p>其中 <code>SiLU(z)=z/(1+exp(-z))</code>，<code>⊙</code> 是逐元素乘法。下面按实际 kernel 顺序补上舍入、截断和量化。</p>
+<h3 id="source-section-14">6.1 L1 epilogue 不只是写矩阵乘法结果</h3>
+<p>本固定 kernel 的实际步骤：</p>
+<pre><code class="language-text">L1 FP32 累加结果
+  → gate/up 舍入到 BF16
+  → 可选 clamp：gate 只有上界；up 有上下界
+  → 转 FP32，计算 SiLU(gate) × up × route_weight
+  → 每 token、每 32 个中间通道求 amax
+  → UE8M0 scale 与 E4M3 FP8 数据
+  → 写 l2_acts / scale，并发布所需就绪状态
+</code></pre>
+<p>有限 clamp 为 c 时，gate 用 <code>min(gate,c)</code>，up 用 <code>clamp(up,-c,c)</code>；它们不是相同的对称截断。普通 routed 分支在这里乘本 token 的路由系数；shared 分支使用系数 1。scale 通过可见的 <code>get_ue8m0_sf_exp(amax)</code> helper 与其倒数生成，本篇没有读取该固定版本 helper 的近零边界实现，因而不把其他参考量化公式直接套过来。</p>
+<p><strong>为什么 route weight 可以放在 down 之前？</strong> 理想实数运算、无 bias 的 down Linear 满足 <code>(w·a)W_downᵀ=w·(aW_downᵀ)</code>。本 kernel 选择前一种放置，并在加权后量化 a；有限精度和量化会影响舍入，因此不声称与“量化后再在输出乘 w”逐位相同。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L1093">L1 epilogue</a></p>
+<h3 id="source-section-15">6.2 L2 输出和 source combine</h3>
+<p>L2 使用 down 权重，把 FP8 中间激活映射回 H 维。epilogue 将贡献转换为 BF16，读取独立 origin metadata，远程写回 source 的对应 <code>topk_slot/token</code> 槽。贡献已经包含 route weight，source combine 不再乘一次。</p>
+<p>owner 全部本地 L2 写回及 epilogue grid 同步完成后发布本轮 release ready；source 完成本地 L2 同步，并 acquire 等待各 token 选中的 owner ranks，才读本地贡献，用 FP32 求和后转 BF16 写 y。融合 shared 分支时还归并本地 shared contribution；未融合时由上层独立计算并相加。<a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L1273">L2 与 combine</a></p>
+<h2 id="source-section-16">7. 怎样把源码和 overlap 动画对应起来</h2>
+<table>
+<thead>
+<tr>
+<th>动画阶段</th>
+<th>源码中的主要执行者</th>
+<th>同时还能做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>metadata / pull</td>
+<td>dispatch warps</td>
+<td>shared 分支可按其调度条件开始；本地 routed 计算等待输入就绪</td>
+</tr>
+<tr>
+<td>L1 / L2</td>
+<td>activation loader、weight loader、MMA</td>
+<td>dispatch 拉后续块，epilogue 处理已完成 tile</td>
+</tr>
+<tr>
+<td>SwiGLU / FP8</td>
+<td>L1 epilogue</td>
+<td>其他 tile 的 MMA；对应 ready 的 L2 K 块可开始加载</td>
+</tr>
+<tr>
+<td>写回 / 本地合并</td>
+<td>L2 与 combine epilogue</td>
+<td>不同块继续推进；清理控制区可与最终 combine 重叠</td>
+</tr>
+</tbody>
+</table>
+<p>同一数据块仍遵守依赖；重叠依靠不同块、tile、CTA 和专职 warp 的流水。共享资源、带宽与尾部同步会限制重叠，动画时间线只说明机制，没有 GPU 实测加速比。</p>
+<p><a href="../archive/mega-moe-full.html">查看完整交互动画</a></p>
+<h2 id="source-section-17">8. 回到源码时的阅读顺序</h2>
+<table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>入口</th>
+<th>重点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/mega/__init__.py#L112">Python 112–166</a></td>
+<td>gate/up 与 scale 如何排成可消费布局</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/mega/__init__.py#L168">Python 168–190</a></td>
+<td>传递权重、raw buffer、peer pointers、配置</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/csrc/apis/mega_moe.hpp#L155">C++ API 155–282</a></td>
+<td>T 从 y 得到，检查约束，重建 views，分派架构</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp#L37">SM100 host 37–221</a></td>
+<td>tile、TMA maps、模板和 2-CTA cluster launch</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L690">kernel 690–945</a></td>
+<td>loader/MMA/scheduler 消费任务，检查就绪</td>
+</tr>
+<tr>
+<td>6</td>
+<td><a href="https://github.com/deepseek-ai/DeepGEMM/blob/057ca5964aae0879ff2e0eb71ee05a3cb0ba3df7/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh#L946">kernel 946–1517</a></td>
+<td>BF16 舍入、clamp、SwiGLU、量化、回写、归并</td>
+</tr>
+</tbody>
+</table>
+<p>主计算阅读线为 <code>transform_weights → fp8_fp4_mega_moe → C++ checks → TMA/JIT launch → scheduler/loaders/MMA → epilogue</code>。buffer 的细节可回看动画；本篇把重点放在其后面的消费者。</p>
+<p><a href="../archive/deepseek-v4-framework.html#section-46">返回总文档 MegaMoE 章节</a> · <a href="../archive/deepseek-v4-quantization.html">V4 量化组件与官方选择</a></p>
+<footer>图示、交互和正文内嵌，可离线阅读。官方源码链接需要联网。Markdown 源文档 · 完整 overlap 动画 · vLLM V4 实际算子</footer></main></div><script>(()=>{const descriptions=[
+'调用者先把本轮 FP8 输入、packed scale、专家 ID 和路由系数写入 buffer，并提供 BF16 y[T,H]。权重提前完成布局转换；wrapper 仅转发参数。',
+'执行 API 从 y.size(0) 取得 T，检查 T ≤ T_cap、权重与 scale 配置、raw buffer 容量，再按本轮维度重建 views。view 使用同一 allocation。',
+'host 选择 tile / stages / 线程数，建立 TMA descriptor 并选择 kernel 模板。descriptor 是搬运描述；实际加载在 GPU 上执行。',
+'CUDA kernel 内，dispatch、loaders、MMA 和 epilogue 处理不同 tile。scheduler 发布任务；就绪信号控制依赖，最终 combine 写入 y。'];
+const panel=document.querySelector('.source-chain');if(panel){const select=i=>{panel.querySelectorAll('[data-source-stage]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.sourceStage===i)));panel.querySelectorAll('[data-chain-stage]').forEach(g=>g.classList.toggle('selected',+g.dataset.chainStage===i));panel.querySelector('#source-stage-desc').textContent=descriptions[i];};panel.querySelectorAll('[data-source-stage]').forEach(b=>b.addEventListener('click',()=>select(+b.dataset.sourceStage)));select(0);}
+const input=document.getElementById('scale-row');if(input){const update=()=>{const r=+input.value;document.getElementById('scale-r').value=String(r);document.getElementById('scale-p').value=String((r%32)*4+Math.floor(r/32));};input.addEventListener('input',update);update();}
+})();;document.querySelectorAll('table').forEach(t=>{const w=document.createElement('div');w.className='table-scroll';t.before(w);w.append(t)});const nav=document.querySelector('nav');const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)nav.querySelectorAll('a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id))})},{rootMargin:'-10% 0px -75% 0px'});document.querySelectorAll('main h2[id]').forEach(h=>obs.observe(h));</script></body></html>

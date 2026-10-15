@@ -1,0 +1,843 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>vLLM · DeepSeek V4 实际算子总结</title><style>*{box-sizing:border-box}html{color-scheme:dark;scroll-behavior:smooth}body{margin:0;background:#000;color:#c8c8d0;font:16px/1.95 'PingFang SC',system-ui,sans-serif}a{color:#65c9e0;text-decoration:none}a:hover{color:#9ce3f0}.top{display:flex;justify-content:space-between;border-bottom:1px solid #25252d;padding:19px 36px;font-size:12px;letter-spacing:2px;color:#9696a5}.top span:first-child{color:#e9edf4}.layout{display:grid;grid-template-columns:210px minmax(0,1100px);gap:46px;max-width:1450px;margin:auto;padding:55px 35px 100px}nav{position:sticky;top:30px;align-self:start;font-size:13px}nav small{color:#777787;letter-spacing:2px}nav a{display:block;color:#9595a5;border-left:1px solid #292931;padding:9px 15px;line-height:1.65}nav a:first-of-type{margin-top:18px}nav a.active{border-color:#78d6b1;color:#78d6b1}main{min-width:0}.hero{border-bottom:1px solid #292931;padding-bottom:32px}.kicker{color:#78d6b1;font-size:12px;letter-spacing:3px}.hero h1{font:64px/1.15 Georgia,serif;color:#f4f4f7;letter-spacing:-1px;margin:25px 0 15px}.hero h1 span{color:#8f94a4;font-size:43px}.subtitle{font-size:25px;line-height:1.55;color:#edf0f7;margin:24px 0 13px}.hero p{color:#9999a5;max-width:790px}.legend{display:flex;flex-wrap:wrap;gap:22px;margin-top:24px;font-size:12px}.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px}h2{font-size:27px;font-weight:500;color:#f3f3f7;line-height:1.5;margin:76px 0 25px;padding-top:24px;border-top:1px solid #292931;scroll-margin-top:28px}h3{font-size:20px;font-weight:500;color:#e2e6ee;margin:40px 0 15px;line-height:1.6}p{margin:16px 0}strong{font-weight:500;color:#f0f0f4}code{font:13px/1.8 'SF Mono',Menlo,monospace;color:#b9c7d6;overflow-wrap:anywhere}p code,td code,li code{background:#14141b;border-radius:3px;padding:2px 5px}pre{background:#0b0b10;border-left:2px solid #32323e;padding:21px 24px;margin:24px 0;overflow:auto;line-height:1.7}pre code{overflow-wrap:normal}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.8;margin:24px 0}th{text-align:left;color:#ececf1;font-weight:500;background:#101015}th,td{padding:13px 14px;border-bottom:1px solid #29292f;vertical-align:top}tr:nth-child(even) td{background:#08080c}.table-scroll{overflow:auto}footer{border-top:1px solid #292931;margin-top:70px;padding-top:25px;font-size:12px;color:#8b8b9b}@media(max-width:1200px){.layout{grid-template-columns:1fr;max-width:1110px;padding:40px 25px}nav{display:none}}@media(max-width:600px){body{font-size:15px}.top{padding:17px 18px}.top span:last-child{display:none}.layout{padding:28px 18px 60px}.hero h1{font-size:45px}.hero h1 span{font-size:31px}.subtitle{font-size:21px}h2{font-size:24px}pre{padding:18px}table{min-width:700px}.source-visual{overflow:auto}.source-visual svg{min-width:720px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}.source-visual{margin:30px 0;padding:0;border:1px solid #292933;background:#08080d;border-radius:10px;overflow:hidden}.source-visual svg{width:100%;height:auto;display:block}.source-visual figcaption{padding:18px 25px;color:#999caf;font-size:14px;line-height:1.8;min-height:82px;border-top:1px solid #272731}.source-controls{display:flex;gap:10px;padding:18px 25px;flex-wrap:wrap}.source-controls button{font:13px 'PingFang SC',system-ui,sans-serif;color:#999caf;background:#111119;border:1px solid #30303d;border-radius:4px;padding:10px 15px;cursor:pointer}.source-controls button[aria-pressed=true]{color:#65c9e0;border-color:#65c9e0;background:#101c23}.source-controls button:focus-visible,input:focus-visible{outline:2px solid #65c9e0;outline-offset:4px}[data-chain-stage]{opacity:.48;transition:opacity .18s}[data-chain-stage].selected{opacity:1}.row-inspector{display:flex;align-items:center;flex-wrap:wrap;gap:22px;padding:18px 25px;font-size:14px;color:#bba0e4}.row-inspector input{flex:1;min-width:120px;accent-color:#bba0e4}.row-inspector output{font-family:Menlo,monospace;color:#eee}.source-layout figcaption{min-height:0}@media(prefers-reduced-motion:reduce){[data-chain-stage]{transition:none}}.ops-figure{margin:30px 0;background:#08080d;border:1px solid #292933;border-radius:10px;overflow:hidden}.ops-figure svg{display:block;width:100%;height:auto}.ops-figure figcaption{padding:18px 25px;color:#999caf;font-size:14px;border-top:1px solid #292933}.ops-toolbar{padding:22px 25px;border:1px solid #30303c;border-radius:6px;background:#0a0a11;margin:25px 0}.ops-toolbar label{font-size:13px;color:#c8c8d8;display:flex;align-items:center;gap:18px}.ops-toolbar input{flex:1;min-width:0;padding:12px 14px;background:#15151f;color:#eee;border:1px solid #343442;border-radius:4px;font:14px 'PingFang SC',system-ui}.ops-filters{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 14px}.ops-filters button{padding:8px 14px;border:1px solid #343442;background:#101018;color:#999bad;border-radius:4px;cursor:pointer;font:13px 'PingFang SC',system-ui}.ops-filters button[aria-pressed=true]{color:#78d6b1;border-color:#78d6b1;background:#101e1a}.ops-toolbar output{font-size:12px;color:#8c91a4}[hidden]{display:none!important}td:first-child{min-width:130px}td:nth-child(2){min-width:200px}.operator-group td:nth-child(3){min-width:230px}.operator-group h3{scroll-margin-top:30px}button:focus-visible,input:focus-visible{outline:2px solid #65c9e0;outline-offset:3px}@media(max-width:600px){.ops-figure{overflow:auto}.ops-figure svg{min-width:720px}.ops-toolbar{padding:18px}.ops-toolbar label{display:block}.ops-toolbar input{display:block;width:100%;margin-top:10px}.operator-group table{min-width:850px}}</style></head><body><header class="top"><span>VLLM / OPERATOR CATALOG</span><span>2026.10.14 · LOCAL SOURCE c91dccc0</span></header><div class="layout"><nav aria-label="章节导航"><small>CONTENTS / 目录</small><a href="#ops-section-0">1. 先把算子放回模型</a><a href="#ops-section-1">2. 按模块检索实际入口</a><a href="#ops-section-11">3. Prefill 与 Decode 的具体变化</a><a href="#ops-section-12">4. 后端和精度怎样决定算子</a><a href="#ops-section-13">5. 其他平台与模型边界</a><a href="#ops-section-14">6. 源码定位与执行范围</a><a href="../archive/deepseek-v4-framework.html#section-46">返回总文档 ↗</a></nav><main><section class="hero"><div class="kicker">FORWARD PATH · FUSED KERNELS · BACKENDS</div><h1>DeepSeek V4<br><span>Inside vLLM</span></h1><div class="subtitle">实际算子与后端调用清单</div><p>从 decoder 主链追到设备入口，按模块整理具体函数、数据作用与启用条件。普通文本主干、后端选择和可选视觉 / draft 路径各有清楚的执行边界。</p><div class="legend"><span><i style="background:#78d6b1"></i>mHC / Norm</span><span><i style="background:#65c9e0"></i>Attention / cache</span><span><i style="background:#bba0e4"></i>Indexer / compression</span><span><i style="background:#efb568"></i>MoE / projections</span></div></section><p>依据本地 vLLM <strong>c91dccc08044b1269f351ceec13070fe8f075e10</strong>，以 NVIDIA 文本主干为主，附可选路径与其他平台概览。相关源码在本次阅读时无本地修改。这里总结的是从forward追到的实际调用入口及其可达分支；没有运行GPU profiler，具体部署的一次执行子集仍由硬件、配置、shape与安装扩展决定。</p>
+<h2 id="ops-section-0">1. 先把算子放回模型</h2>
+<figure class="ops-figure"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 700" role="img" aria-labelledby="v4-ops-title v4-ops-desc" style="font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><title id="v4-ops-title">vLLM DeepSeek V4 实际算子执行路径</title><desc id="v4-ops-desc">decoder 的 mHC、Attention、MoE 主链，展开 Attention 的投影、缓存、稀疏聚合和输出投影，说明 SWA、CSA、HCA 的索引生成差异。</desc><rect width="1080" height="700" fill="#08080d" rx="10"></rect><text x="34" y="40" fill="#9699ac" font-size="13">VLLM / DSV4 EXECUTION MAP</text><text x="34" y="85" fill="#e7e9f0" font-size="23">先看一个 decoder 循环</text><rect x="34" y="111" width="181" height="88" rx="7" fill="#0d0d15" stroke="#65c9e0"></rect><text x="51" y="142" fill="#65c9e0" font-size="18">Embedding</text><text x="51" y="174" fill="#9699ac" font-size="15">首层输入 [T,D]</text><path d="M215 156 H235 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="241" y="111" width="181" height="88" rx="7" fill="#0d0d15" stroke="#78d6b1"></rect><text x="258" y="142" fill="#78d6b1" font-size="18">mHC pre</text><text x="258" y="174" fill="#9699ac" font-size="15">收缩 + Norm</text><path d="M422 156 H442 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="448" y="111" width="181" height="88" rx="7" fill="#0d0d15" stroke="#65c9e0"></rect><text x="465" y="142" fill="#65c9e0" font-size="18">Attention</text><text x="465" y="174" fill="#9699ac" font-size="15">投影 / cache / 聚合</text><path d="M629 156 H649 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="655" y="111" width="181" height="88" rx="7" fill="#0d0d15" stroke="#78d6b1"></rect><text x="672" y="142" fill="#78d6b1" font-size="18">mHC post/pre</text><text x="672" y="174" fill="#9699ac" font-size="15">回写 + 收缩 + Norm</text><path d="M836 156 H856 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="862" y="111" width="181" height="88" rx="7" fill="#0d0d15" stroke="#efb568"></rect><text x="879" y="142" fill="#efb568" font-size="18">MoE</text><text x="879" y="174" fill="#9699ac" font-size="15">Router + experts</text><text x="34" y="232" fill="#9699ac" font-size="16">MoE 返回子层结果及 residual/mix；下一层开头融合回写，最后一层单独 mHC post。</text><text x="34" y="264" fill="#9699ac" font-size="16">末端：hc_head → RMSNorm → LM Head → logits；采样由 serving runner 另行调用。</text><path d="M34 291 H1046" stroke="#30303d"></path><text x="34" y="333" fill="#e7e9f0" font-size="23">展开 Attention：三种模式共用所选聚合后端</text><rect x="34" y="361" width="232" height="86" rx="7" fill="#0d0d15" stroke="#65c9e0"></rect><text x="51" y="391" fill="#65c9e0" font-size="19">输入投影</text><text x="51" y="424" fill="#9699ac" font-size="15">低秩 Q / KV / Q heads</text><path d="M266 405 H288 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="294" y="361" width="232" height="86" rx="7" fill="#0d0d15" stroke="#bba0e4"></rect><text x="311" y="391" fill="#bba0e4" font-size="19">Q / KV 准备</text><text x="311" y="424" fill="#9699ac" font-size="15">归一化 · RoPE · 写 cache</text><path d="M526 405 H548 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="554" y="361" width="232" height="86" rx="7" fill="#0d0d15" stroke="#65c9e0"></rect><text x="571" y="391" fill="#65c9e0" font-size="19">Sparse MLA</text><text x="571" y="424" fill="#9699ac" font-size="15">FlashMLA / FlashInfer</text><path d="M786 405 H808 m-6 -4 l6 4 -6 4" fill="none" stroke="#30303d" stroke-width="1.6"></path><rect x="814" y="361" width="232" height="86" rx="7" fill="#0d0d15" stroke="#efb568"></rect><text x="831" y="391" fill="#efb568" font-size="19">O 投影</text><text x="831" y="424" fill="#9699ac" font-size="15">逆 RoPE · O_a · O_b</text><text x="34" y="489" fill="#9699ac" font-size="18">局部与历史索引怎样产生</text><rect x="34" y="513" width="322" height="109" rx="7" fill="#0d0d15" stroke="#65c9e0"></rect><text x="52" y="544" fill="#65c9e0" font-size="20">SWA</text><text x="52" y="572" fill="#9699ac" font-size="15">配置 ratio 0 / 内部 ratio 1</text><text x="52" y="600" fill="#e7e9f0" font-size="15">局部窗口索引</text><rect x="379" y="513" width="322" height="109" rx="7" fill="#0d0d15" stroke="#bba0e4"></rect><text x="397" y="544" fill="#bba0e4" font-size="20">CSA</text><text x="397" y="572" fill="#9699ac" font-size="15">ratio = 4</text><text x="397" y="600" fill="#e7e9f0" font-size="15">局部窗口 + Indexer top-k 摘要</text><rect x="724" y="513" width="322" height="109" rx="7" fill="#0d0d15" stroke="#efb568"></rect><text x="742" y="544" fill="#efb568" font-size="20">HCA</text><text x="742" y="572" fill="#9699ac" font-size="15">ratio = 128</text><text x="742" y="600" fill="#e7e9f0" font-size="15">局部窗口 + 可见压缩摘要</text><text x="34" y="666" fill="#9699ac" font-size="15">融合粒度与 backend 受硬件、batch、cache dtype 和配置影响；图中框不等于一次 kernel launch。</text></svg><figcaption>沿主干定位算子，再阅读下方实际函数名与启用条件。</figcaption></figure>
+<p><strong>读图。</strong> 首层先把embedding作为重复C路残差的来源；mHC pre收缩并融合子层输入Norm。Attention输出经post/pre进入MoE；MoE结果携带residual/mix返回，交给下一层开头回写。最后一层独立post，然后hc_head收束、最终Norm，compute_logits再投词表。图中每个框可能包含多个kernel，也可能与相邻步骤部分融合。</p>
+<p>记号：T是该调用实际token行数（可含padding，SP下可能是本rank shard）；D为hidden，C=hc_mult，I为expert intermediate，E为专家数，K_e为每token激活专家数，K_i为Indexer选择的历史压缩数。主Q/KV head_dim=512、RoPE尾部64；Flash/Pro使用同一实现，具体层数和宽度从config读取。</p>
+<table>
+<thead>
+<tr>
+<th>架构模式</th>
+<th>本实现的ratio</th>
+<th>实际增加的工作</th>
+<th>聚合入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SWA</td>
+<td>配置0映射到内部1</td>
+<td>局部因果窗口索引</td>
+<td>所选sparse MLA后端</td>
+</tr>
+<tr>
+<td>CSA / C4A</td>
+<td>4</td>
+<td>主KV压缩、Indexer K压缩、Q评分、历史top-k</td>
+<td>同一后端，增加压缩候选</td>
+</tr>
+<tr>
+<td>HCA / C128A</td>
+<td>128</td>
+<td>粗粒度KV压缩、枚举全部可见摘要</td>
+<td>同一后端，增加粗摘要候选</td>
+</tr>
+</tbody>
+</table>
+<p>CSA的Indexer是Attention内部步骤；MoE Router选择专家；Sampler选择词表token。这三个top-k处理不同对象。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L733" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L733">L733</a></p>
+<h2 id="ops-section-1">2. 按模块检索实际入口</h2>
+<p>每行按一个入口或功能组整理，复合函数可以启动多个kernel。搜索与模块按钮会筛选本节的主干、条件分支及可选路径表；它们不是“同一次前向全部运行”的launch数量。</p>
+<div class="ops-toolbar"><label for="ops-search">检索算子 <input id="ops-search" type="search" placeholder="例如 rope、mqa、MoE、FP4"></label><div class="ops-filters" role="group" aria-label="模块筛选"><button type="button" data-ops-filter="" aria-pressed="true">全部</button><button type="button" data-ops-filter="通用" aria-pressed="false">通用</button><button type="button" data-ops-filter="mHC" aria-pressed="false">mHC</button><button type="button" data-ops-filter="Attention" aria-pressed="false">Attention</button><button type="button" data-ops-filter="Compressor" aria-pressed="false">Compressor</button><button type="button" data-ops-filter="Indexer" aria-pressed="false">Indexer</button><button type="button" data-ops-filter="MoE" aria-pressed="false">MoE</button><button type="button" data-ops-filter="输出" aria-pressed="false">输出</button><button type="button" data-ops-filter="通信" aria-pressed="false">通信</button><button type="button" data-ops-filter="可选" aria-pressed="false">可选</button></div><output id="ops-visible" aria-live="polite"></output></div>
+<section class="operator-group" data-module="通用"><h3 id="ops-section-2">2.1 [通用] Embedding、动态量化与普通 Linear</h3><p>普通 Linear 经 quant_method.apply 进入所选实现。以下是主流 block-FP8 可达路径；ignored / unquantized 层走普通矩阵乘法。候选后端按硬件、shape、配置及可用扩展选择。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>词表查表</td>
+<td><code>VocabParallelEmbedding.forward</code> / <code>F.embedding</code> / <code>ops.vocab_parallel_embedding</code></td>
+<td>token IDs → [T,D]；TP 时 mask 或融合查表，再归约各 shard。</td>
+<td>首个 PP rank；inputs_embeds 已给定时可跳过查表。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/vocab_parallel_embedding.py#L518" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/vocab_parallel_embedding.py#L518">L518</a></td>
+</tr>
+<tr>
+<td>动态 FP8 量化</td>
+<td><code>QuantFP8</code> / <code>per_token_group_quant_fp8</code> / <code>per_token_group_quant_fp8_packed_for_deepgemm</code></td>
+<td>激活 → FP8 data + scale；普通 block128 Linear 常按 K 每128值分组。</td>
+<td>由所选 GEMM 决定是否外置量化，以及 scale packing。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/quantization/input_quant_fp8.py#L83" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/quantization/input_quant_fp8.py#L83">L83</a></td>
+</tr>
+<tr>
+<td>DeepGEMM Linear</td>
+<td><code>fp8_gemm_nt_op</code> / <code>fp8_gemm_nt</code></td>
+<td>FP8 A[T,K] × FP8 W[N,K]，补 scale，输出 BF16 [T,N]。</td>
+<td>DeepGemmFp8BlockScaledMMKernel 获选；支持 dtype、shape 与设备。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/deep_gemm.py#L112" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/deep_gemm.py#L112">L112</a></td>
+</tr>
+<tr>
+<td>动态 FI / DG Linear</td>
+<td><code>dynamic_flashinfer_deepgemm_blockscale_gemm</code></td>
+<td>小 T 使用 FlashInfer 内部量化；大 T 外置量化后调用 DeepGEMM。</td>
+<td>该动态类获选且双方支持；通常 T&lt;32 选 FI，batch-invariant 强制 DG。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/flashinfer.py#L229" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/flashinfer.py#L229">L229</a></td>
+</tr>
+<tr>
+<td>CUTLASS Linear</td>
+<td><code>CutlassFp8BlockScaledMMKernel</code> / <code>ops.cutlass_scaled_mm</code></td>
+<td>动态 FP8 量化后做 block-scaled GEMM。</td>
+<td>selector 选中该 block-FP8 实现。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/cutlass.py#L276" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/cutlass.py#L276">L276</a></td>
+</tr>
+<tr>
+<td>Triton Linear</td>
+<td><code>TritonFp8BlockScaledMMKernel</code> / <code>w8a8_triton_block_scaled_mm_func</code></td>
+<td>FP8 block-scaled GEMM，输出恢复为调用层 shape。</td>
+<td>selector 选中 Triton fallback。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/triton.py#L159" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/scaled_mm/triton.py#L159">L159</a></td>
+</tr>
+</tbody>
+</table><p>实际选择器是 <a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/__init__.py#L701" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/__init__.py#L701">L701</a>。CUDA 注册表还含 B12x、Marlin、Humming、Torch 等按资格选择的 fallback；注册存在本身不能证明某次前向执行了它。</p></section>
+
+
+
+<section class="operator-group" data-module="mHC"><h3 id="ops-section-3">2.2 [mHC] 四路残差、系数生成与融合</h3><p>记 C=hc_mult，X 为 [T,C,D]；系数投影输出 C(C+2) 个值，拆成 pre、post 与 C×C residual mix。NVIDIA decoder 直接使用下面的 TileLang 封装。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首层广播 pre</td>
+<td><code>mhc_pre_broadcast_tilelang</code></td>
+<td>[T,D] → 保存 C 路 residual，并生成已 RMSNorm 的 [T,D] 子层输入。</td>
+<td>首个 PP rank 首次 2D 输入；预合并广播投影权重。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L698" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L698">L698</a></td>
+</tr>
+<tr>
+<td>prenorm 投影</td>
+<td><code>tf32_hc_prenorm_gemm</code> / <code>_HC_PRENORM_GEMM_TILELANG_KERNEL</code></td>
+<td>计算 v·Fᵀ 和平方和；用于归一化系数投影。</td>
+<td>普通 pre：DG 可用用 TF32 helper，否则 TileLang；广播 pre 强制 DG helper。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L22" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L22">L22</a></td>
+</tr>
+<tr>
+<td>gate / Sinkhorn / 收缩</td>
+<td><code>_MHC_PRE_BIG_FUSE_TILELANG_KERNEL</code></td>
+<td>inverse RMS → sigmoid pre/post gates → Sinkhorn → C路加权收缩 → layer-input RMSNorm。</td>
+<td>pre 及 post/pre 后续步骤；decoder 传入 Norm 权重以融合归一化。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L542" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L542">L542</a></td>
+</tr>
+<tr>
+<td>post/pre 复合调用</td>
+<td><code>mhc_fused_post_pre_tilelang</code> / <code>_MHC_FUSED_TILELANG_KERNEL</code></td>
+<td>旧子层输出回写 residual，并准备下一子层的 pre；之后仍运行 big_fuse。</td>
+<td>本 rank T≤32 且 D%128=0 用融合前段；否则拆成 post + prenorm GEMM。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814">L814</a></td>
+</tr>
+<tr>
+<td>独立 post</td>
+<td><code>mhc_post_tilelang</code> / <code>_MHC_POST_TILELANG_KERNEL</code></td>
+<td>X_new[j] = post[j]·u + Σ_i mix[i,j]·X_old[i]，输出 [T,C,D]。</td>
+<td>最后一个本地 decoder；aux hidden 重建；post/pre 的拆分分支。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L791" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L791">L791</a></td>
+</tr>
+</tbody>
+</table><p>mHC 中 residual 为 BF16，系数/关键统计为 FP32，prenorm 可用 TF32 GEMM。FFN 的 post 留给下一层开头；本地循环末尾才独立重建。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1320" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1320">L1320</a></p></section>
+
+
+
+<section class="operator-group" data-module="Attention"><h3 id="ops-section-4">2.3 [Attention] 投影、Q/KV 准备、索引与稀疏聚合</h3><p>主 latent/head_dim=512，尾部64维为 RoPE。低秩 Q/KV 的 learned RMSNorm 与投影后逐 query head 的无权 RMSNorm 是两次不同计算。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主输入投影</td>
+<td><code>fused_wqa_wkv</code> / <code>wq_b</code></td>
+<td>[T,D] → q_low + KV；q_low 再投影成 [T,Nq,512]。</td>
+<td>每个 attention；底层由 Linear 量化方法决定。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L471" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L471">L471</a></td>
+</tr>
+<tr>
+<td>低秩 Q/KV Norm</td>
+<td><code>fused_q_kv_rmsnorm</code> / <code>FusedQKVRMSNormKernel</code></td>
+<td>两路各自做 learned RMSNorm，保持各自 shape。</td>
+<td>主 fused projection 拆分之后。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L519" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L519">L519</a></td>
+</tr>
+<tr>
+<td>packed Q/KV 准备</td>
+<td><code>fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert</code></td>
+<td>Q逐头无权Norm + RoPE；KV RoPE + 448维G64 FP8 / 64维BF16尾部，写 SWA cache。</td>
+<td>packed uint8 fp8_ds_mla cache；含 query head padding。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L793" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L793">L793</a></td>
+</tr>
+<tr>
+<td>完整 BF16 cache 准备</td>
+<td><code>fused_deepseek_v4_qnorm_rope_kv_rope_full_cache_bf16_insert</code></td>
+<td>Q norm/RoPE，KV 以完整512维 BF16写cache。</td>
+<td>plain BF16 cache 分支。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L819" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L819">L819</a></td>
+</tr>
+<tr>
+<td>完整 FP8 cache 准备</td>
+<td><code>fused_deepseek_v4_qnorm_rope_kv_rope_full_cache_fp8_insert</code></td>
+<td>Q/KV 按 per-tensor scale 输出 FP8；完整512维cache。</td>
+<td>plain per-tensor FP8 分支，区别于 packed 混合格式。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L832" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L832">L832</a></td>
+</tr>
+<tr>
+<td>SWA 可见地址</td>
+<td><code>_compute_swa_indices_and_lens_kernel</code></td>
+<td>逻辑因果窗口 → 分页物理 slots 与有效长度；无效位置 -1。</td>
+<td>各层 SWA metadata；图片跨度和 DSpark 有专用可见规则。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/attention/backends/mla/sparse_swa.py#L1008" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/attention/backends/mla/sparse_swa.py#L1008">L1008</a></td>
+</tr>
+<tr>
+<td>HCA 压缩地址</td>
+<td><code>build_c128a_topk_metadata</code> / <code>BuildC128ATopkMetadataKernel</code></td>
+<td>枚举 floor((position+1)/128) 个可见压缩项。</td>
+<td>ratio=128；名称含 topk，但不运行 learned score top-k。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/sparse_mla.py#L229" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/sparse_mla.py#L229">L229</a></td>
+</tr>
+<tr>
+<td>压缩逻辑ID转地址</td>
+<td><code>compute_global_topk_indices_and_lens</code></td>
+<td>压缩记录 ID → compressed cache 物理slot，并统计有效长度。</td>
+<td>CSA decode 等地址转换；不重新按score排序。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/cache_utils.py#L591" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/cache_utils.py#L591">L591</a></td>
+</tr>
+<tr>
+<td>prefill KV gather</td>
+<td><code>dequantize_and_gather_k_cache</code> / <code>DequantGatherKCacheKernel</code></td>
+<td>分页 packed KV → BF16连续workspace，补回对应scale。</td>
+<td>FlashMLA prefill；CuTe DSL可用则CuTe，否则Triton。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L326" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L326">L326</a></td>
+</tr>
+<tr>
+<td>prefill 候选合并</td>
+<td><code>combine_topk_swa_indices</code> / <code>CombineTopkSwaIndicesKernel</code></td>
+<td>压缩局部ID + SWA位置 → gathered workspace中的 combined indices。</td>
+<td>FlashMLA prefill；两类候选随后共用一次softmax。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L356" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L356">L356</a></td>
+</tr>
+<tr>
+<td>FI 混合索引</td>
+<td><code>build_flashinfer_mixed_sparse_indices</code></td>
+<td>SWA与compressed候选组成混合storage-offset索引，并处理页stride。</td>
+<td>FlashInfer SM100类；SM120保留两组indices。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/cache_utils.py#L1286" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/cache_utils.py#L1286">L1286</a></td>
+</tr>
+<tr>
+<td>FlashMLA decode</td>
+<td><code>flash_mla_with_kvcache</code></td>
+<td>Q读取paged SWA + optional compressed cache，含sink，输出attention向量。</td>
+<td>FlashMLA获选，decode部分。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L248" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L248">L248</a></td>
+</tr>
+<tr>
+<td>FlashMLA prefill</td>
+<td><code>flash_mla_sparse_fwd</code></td>
+<td>BF16 gathered KV + combined indices → sparse attention输出。</td>
+<td>FlashMLA获选，prefill部分，按至多4请求分chunk。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L390" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L390">L390</a></td>
+</tr>
+<tr>
+<td>FlashInfer sparse MLA</td>
+<td><code>trtllm_batch_decode_sparse_mla_dsv4</code></td>
+<td>读SWAcache与compressed cache、索引、sink，计算稀疏聚合。</td>
+<td>FI SM100或SM120；prefill/decode都调用该API，布局与参数分支不同。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashinfer_sparse.py#L492" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashinfer_sparse.py#L492">L492</a></td>
+</tr>
+<tr>
+<td>逆RoPE / 输出量化</td>
+<td><code>fused_inv_rope_fp8_quant</code> / <code>FusedInvRopeFP8QuantKernel</code></td>
+<td>attention输出尾部逆旋转，按O分组重排；FP8 wo_a时同时量化。</td>
+<td>普通O路径；FI SM100的RopeQuant epilogue满足条件时已在attention内完成。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L61" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L61">L61</a></td>
+</tr>
+<tr>
+<td>分组 O_a</td>
+<td><code>fp8_einsum</code> / <code>torch.bmm</code></td>
+<td>每组attention向量 → BF16低秩 z[T,G,r_o]。</td>
+<td>FP8 wo_a用DG fp8_einsum；非FP8 wo_a用bmm。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L89" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L89">L89</a></td>
+</tr>
+<tr>
+<td>O_b 输出投影</td>
+<td><code>wo_b</code> / <code>RowParallelLinear</code></td>
+<td>flatten z后投影回[T,D]，按TP/SP配置归约。</td>
+<td>每个attention的最后一步。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L106" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L106">L106</a></td>
+</tr>
+</tbody>
+</table><p>稀疏聚合的数学主体为 score=Q·KV/√512，SWA与压缩候选一起归一化；learned sink增加softmax分母。SWA/CSA/HCA改变候选生成，不是把三次独立attention输出相加。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L174" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/flashmla.py#L174">L174</a></p></section>
+
+
+
+<section class="operator-group" data-module="Compressor"><h3 id="ops-section-5">2.4 [Compressor] 历史状态与压缩 KV</h3><p>只有 ratio&gt;1 的层运行主 Compressor；CSA 同时为 Indexer 运行128维K Compressor。C4压缩使用相邻两块、共8个token；C128使用128个token。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>压缩输入投影</td>
+<td><code>fused_wkv_wgate</code> / <code>torch.mm(out_dtype=torch.float32)</code></td>
+<td>hidden → FP32 KV与逐坐标score。</td>
+<td>主Compressor或Indexer Compressor启用；projection可放aux stream。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L672" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L672">L672</a></td>
+</tr>
+<tr>
+<td>保存部分状态</td>
+<td><code>_SAVE_PARTIAL_STATES_KERNEL</code> / <code>SavePartialStatesKernel</code></td>
+<td>KV与score+APE写分页FP32 state；未到压缩边界也要保存。</td>
+<td>Compressor每轮有效输入。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L354" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L354">L354</a></td>
+</tr>
+<tr>
+<td>C4主KV融合压缩</td>
+<td><code>SparseAttnCompressNormRopeStoreC4Kernel</code> / <code>SparseAttnCompressNormRopeStoreFullC4Kernel</code></td>
+<td>逐latent坐标softmax压缩 → RMSNorm → RoPE → cache。</td>
+<td>主head512、ratio4；按packed/full cache二选一；每4token完成一项。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2398" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2398">L2398</a></td>
+</tr>
+<tr>
+<td>C128压缩第一阶段</td>
+<td><code>SparseAttnCompressC128Block8Kernel</code></td>
+<td>从分页历史读取128token，逐坐标压缩到FP32 temporary。</td>
+<td>主head512、ratio128；到边界才输出压缩项。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2436" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2436">L2436</a></td>
+</tr>
+<tr>
+<td>C128第二阶段</td>
+<td><code>SparseAttnNormRopeStoreKernel</code> / <code>SparseAttnNormRopeStoreFullKernel</code></td>
+<td>temporary → Norm / RoPE / packed或full cache。</td>
+<td>C128第一阶段后；非FULL graph且无边界时可提前跳过。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2461" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/sparse_attn_compress_cutedsl.py#L2461">L2461</a></td>
+</tr>
+<tr>
+<td>Indexer K压缩</td>
+<td><code>compress_norm_rope_store_triton</code> / <code>FusedKVCompressNormRopeInsertIndexerTritonKernel</code></td>
+<td>128维Indexer K做C4压缩、Norm、RoPE、FP8或MXFP4量化写cache。</td>
+<td>CSA Indexer；默认FP8，显式mxfp4配置走FP4device分支。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L470" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L470">L470</a></td>
+</tr>
+</tbody>
+</table><p>压缩门控可写为：k̄[d]=Σ_j softmax_j(score[j,d]+APE[j,d])·KV[j,d]，随后Norm与块起点RoPE。每个坐标有自己的权重，不能简化成每token只有一个门控标量。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/fused_compress_quant_cache.py#L711" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/fused_compress_quant_cache.py#L711">L711</a></p></section>
+
+
+
+<section class="operator-group" data-module="Indexer"><h3 id="ops-section-6">2.5 [Indexer] CSA 的评分与历史 top-k</h3><p>仅 ratio=4 创建 learned Indexer。它位于 Attention 内，输出压缩位置；MoE Router 另外选择专家，词表采样则选择 token。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Q与head权重投影</td>
+<td><code>indexer.wq_b</code> / <code>indexer.weights_proj</code></td>
+<td>q_low→Q[T,Ni,128]；hidden→各Indexer head评分权重。</td>
+<td>CSA；短上下文shortcut可能跳过Q投影。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L1109" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L1109">L1109</a></td>
+</tr>
+<tr>
+<td>Indexer Q融合准备</td>
+<td><code>fused_indexer_q_rope_quant</code> / <code>IndexerQFp8Kernel</code> / <code>IndexerQMxFp4Kernel</code></td>
+<td>Q尾部RoPE + BF16舍入 + FP8或G32 MXFP4；输出缩放后的head权重。</td>
+<td>CuTe DSL可用选CuTe，否则对应Triton；FP4要求SM100 family与显式配置。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/fused_indexer_q.py#L547" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/ops/fused_indexer_q.py#L547">L547</a></td>
+</tr>
+<tr>
+<td>短上下文直接全选</td>
+<td><code>_fill_short_context_topk_indices</code></td>
+<td>填所有已完成压缩位置，其余-1，跳过Q评分与top-k。</td>
+<td>最大压缩长度≤index_topk，且不在CUDA stream capture中；K Compressor仍执行。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L1085" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L1085">L1085</a></td>
+</tr>
+<tr>
+<td>prefill Indexer K gather</td>
+<td><code>cp_gather_indexer_k_quant_cache</code></td>
+<td>分页量化K与scale → 连续chunk工作区，保留FP8/FP4表示。</td>
+<td>Indexer prefill评分前；不是主KV反量化gather。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L484" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L484">L484</a></td>
+</tr>
+<tr>
+<td>prefill Indexer评分</td>
+<td><code>fp8_fp4_mqa_logits</code></td>
+<td>Q·K→ReLU→head加权求和，输出FP32候选logits。</td>
+<td>CSA prefill；Q/K格式由indexer_kv_dtype决定。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L484" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L484">L484</a></td>
+</tr>
+<tr>
+<td>prefill top-k</td>
+<td><code>ops.top_k_per_row_prefill</code> / <code>topKPerRowPrefill</code></td>
+<td>对有效候选区间选压缩记录ID，写int32 top-k buffer。</td>
+<td>prefill评分后。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L625" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L625">L625</a></td>
+</tr>
+<tr>
+<td>decode分页评分</td>
+<td><code>fp8_fp4_paged_mqa_logits</code></td>
+<td>直接读paged量化K，结合context_lens与schedule metadata输出logits。</td>
+<td>CSA decode；spec decode可有next_n维和ragged pack/unpack。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L643" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L643">L643</a></td>
+</tr>
+<tr>
+<td>decode top-k</td>
+<td><code>get_indexer_topk</code> / <code>cooperative_topk</code> / <code>persistent_topk</code> / <code>top_k_per_row_decode</code></td>
+<td>按资格选择并写top-k IDs。</td>
+<td>auto依次尝试cooperative、persistent、per-row；另有显式DeepSelect/FI/Torch选择。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/indexer_topk.py#L236" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/indexer_topk.py#L236">L236</a></td>
+</tr>
+</tbody>
+</table><p>评分主体为 score[t,j]=Σ_h weight[t,h]·ReLU(Q[t,h]·K[j])，随后按候选区间选K_i项。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/tests/model_executor/layers/test_mla_short_prefill_indexer.py#L1038" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/tests/model_executor/layers/test_mla_short_prefill_indexer.py#L1038">L1038</a> 该NVIDIA前向的Q/K融合kernel执行RoPE和量化，未显式调用Hadamard；不能把官方参考实现里的Hadamard直接列成本checkout的运行算子。FP8 Q的scale折进head权重，MXFP4 Q则另传packed scales。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/fused_indexer_q_cutedsl.py#L34" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/fused_indexer_q_cutedsl.py#L34">L34</a></p></section>
+
+
+
+<section class="operator-group" data-module="MoE"><h3 id="ops-section-7">2.6 [MoE] 路由、专家执行与共享专家</h3><p>模型先按moe_backend选择原生MegaMoE、FlashInfer EP或普通FusedMoE。前两类共用模型专用mega routing，随后专家forward不同。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>路由元数据</td>
+<td><code>prepare_mega_gate_routing_metadata</code></td>
+<td>为hash层准备safe token IDs、hash/image mask；图像sentinel走视觉bias。</td>
+<td>mega家族模型每轮准备一次。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L107" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L107">L107</a></td>
+</tr>
+<tr>
+<td>Router投影</td>
+<td><code>GateLinear</code> / <code>bf16_mega_gate</code></td>
+<td>hidden[T,D]→FP32专家logits或直接top-k IDs/weights。</td>
+<td>mega家族：E=128时T≤1、其他E时T≤16用GateLinear；更大T用mega_gate。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1054" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1054">L1054</a></td>
+</tr>
+<tr>
+<td>sqrtsoftplus / hash top-k</td>
+<td><code>fused_topk_bias</code> / <code>dsv4_topk</code> / <code>ops.topk_hash_softplus_sqrt</code></td>
+<td>sqrt(softplus(logit))；bias辅助选ID，原score归一化并乘routed_scaling_factor。</td>
+<td>小T mega路由和普通router可达；dsv4_topk仅其E/K/dtype等资格满足时。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/router/fused_topk_bias_router.py#L146" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/router/fused_topk_bias_router.py#L146">L146</a></td>
+</tr>
+<tr>
+<td>EPLB映射</td>
+<td><code>eplb_map_to_physical_and_record</code></td>
+<td>logical expert ID→physical replica ID，并记录负载。</td>
+<td>原生路径按EPLB配置启用；FI EP拒绝EPLB。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L710" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L710">L710</a></td>
+</tr>
+<tr>
+<td>原生输入staging</td>
+<td><code>prepare_megamoe_inputs</code></td>
+<td>BF16 hidden→G32 FP8 + packed UE8M0，并写top-k IDs/weights及可选shared scale。</td>
+<td>原生DeepGEMM MegaMoE；FI override不调用此Triton入口。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/prepare_megamoe.py#L163" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/prepare_megamoe.py#L163">L163</a></td>
+</tr>
+<tr>
+<td>原生融合专家</td>
+<td><code>deep_gemm.fp8_fp4_mega_moe</code></td>
+<td>EP通信 + gate/up GEMM + clamp/SwiGLU×route + down GEMM + 写回/combine。</td>
+<td>deep_gemm_mega_moe；当前模型分支要求EP、FP4专家、SM10x及兼容shape。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L762" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L762">L762</a></td>
+</tr>
+<tr>
+<td>FlashInfer EP专家</td>
+<td><code>MoEEpMegaLayer.forward</code> / <code>kernel.stage_inputs</code> / <code>kernel.compute</code></td>
+<td>将输入路由送入FI专用megakernel；DeepGEMM或NVFP4 CuTeDSL family。</td>
+<td>两个flashinfer_moe_ep_mega_*配置；SM100/103及对应通信runtime。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/fi_moe.py#L313" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/fi_moe.py#L313">L313</a></td>
+</tr>
+<tr>
+<td>普通FusedMoE专家</td>
+<td><code>MoERunner</code> / <code>quant_method.apply</code> / <code>quant_method.apply_monolithic</code></td>
+<td>runner内生成gate logits，modular或monolithic kernel完成专家计算及通信。</td>
+<td>非mega家族；expert_dtype fp4→MXFP4，显式NVFP4 override→ModelOpt；fp8→FP8方法。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L865" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L865">L865</a></td>
+</tr>
+<tr>
+<td>共享专家MLP</td>
+<td><code>gate_up_proj</code> / <code>SiluAndMulWithClamp</code> / <code>SiluAndMul</code> / <code>down_proj</code></td>
+<td>D→2SI→SwiGLU→SI→D，再与routed输出相加。</td>
+<td>独立共享路径；原生MegaMoE满足完整资格时可融合shared，FI使用独立shared。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185">L185</a></td>
+</tr>
+</tbody>
+</table><p>路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见<a href="mega-moe-source-guide.html">源码导读</a>。</p></section>
+
+
+
+<section class="operator-group" data-module="输出"><h3 id="ops-section-8">2.7 [输出] 主干收束、LM Head 与采样</h3><p>主模型forward产hidden；compute_logits和Sampler属于之后的独立调用。runner通常只选择需要出token的hidden行投词表。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>多流head收缩</td>
+<td><code>hc_head_fused_kernel_tilelang</code></td>
+<td>[T,C,D]→learned sigmoid权重→[T,D]，FP32关键统计。</td>
+<td>最后PP rank；完成最后mHC post之后。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L1041" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L1041">L1041</a></td>
+</tr>
+<tr>
+<td>最终Norm</td>
+<td><code>RMSNorm</code> / <code>ir.ops.rms_norm</code></td>
+<td>最后一维RMS归一化；保持[T,D]。</td>
+<td>hc_head之后；batch-invariant时选专用实现。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/layernorm.py#L74" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/layernorm.py#L74">L74</a></td>
+</tr>
+<tr>
+<td>词表投影</td>
+<td><code>ParallelLMHead</code> / <code>LogitsProcessor._apply_head</code></td>
+<td>[T_selected,D]→词表logits；TP普通路径gather并去padding。</td>
+<td>generation默认model dtype；显式FP32 head_dtype时可torch.mm(out_dtype=FP32)。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/logits_processor.py#L136" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/logits_processor.py#L136">L136</a></td>
+</tr>
+<tr>
+<td>采样与logprobs</td>
+<td><code>Sampler</code> / <code>TopKTopPSampler</code> / <code>argmax</code></td>
+<td>logits转FP32；按配置做penalty、temperature、top-k/top-p与随机或greedy采样。</td>
+<td>serving runner调用；speculation则进入验证/rejection路径。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/sample/sampler.py#L73" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/sample/sampler.py#L73">L73</a></td>
+</tr>
+</tbody>
+</table><p>compute_logits_local(skip_gather=True)返回本rank带padding的词表shard，不是完整全词表。采样前cast FP32也不意味着LM Head矩阵乘法默认FP32。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1999" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1999">L1999</a></p></section>
+
+
+
+<section class="operator-group" data-module="通信"><h3 id="ops-section-9">2.8 [通信] SP / TP / EP 的数据动作</h3><p>通信可在模型层、runner或融合后端内部发生。按output_is_reduced等条件决定归约，不能把所有collective无条件叠加。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本地token分片</td>
+<td><code>sp_shard</code> / <code>sp_padding_mask</code></td>
+<td>padding + token维本地slice；本身不通信。</td>
+<td>PP=1、EP开启、TP&gt;1，且mega家族或DP&gt;1时启用本模型SP。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L42" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L42">L42</a></td>
+</tr>
+<tr>
+<td>SP gather</td>
+<td><code>sp_all_gather</code></td>
+<td>Attention前收集token shard；模型末尾收集完整C路hidden。</td>
+<td>本模型SP启用；优先custom collective，否则TP all_gather。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L23" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L23">L23</a></td>
+</tr>
+<tr>
+<td>SP求和并分片</td>
+<td><code>sp_reduce_scatter</code></td>
+<td>Attention TP partial结果求和并按token分片。</td>
+<td>SP启用；对应wo_b.reduce_results=False，避免再独立all_reduce。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L30" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/common/ops/sequence_parallel.py#L30">L30</a></td>
+</tr>
+<tr>
+<td>普通MoE通信/归约</td>
+<td><code>dispatch_router_logits</code> / <code>combine</code> / <code>tensor_model_parallel_all_reduce</code></td>
+<td>按EP runner或internal MoE kernel完成token交换及输出归约。</td>
+<td>受DP/SP、supports_internal_mk、output_is_reduced等条件控制；原生/FI mega内部执行专用通信。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L774" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L774">L774</a></td>
+</tr>
+</tbody>
+</table><p>PP边界交付已重建的[T,C,D] IntermediateTensors，send/recv由执行器安排，model.py没有直接launch这些网络操作。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1626" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1626">L1626</a></p></section>
+
+
+
+<section class="operator-group" data-module="可选"><h3 id="ops-section-10">2.9 [可选] MTP、DSpark 与图片输入</h3><p>下面是按模型类/请求触发的路径。普通纯文本主模型forward不会依次运行ViT、MTP、DSpark和confidence head。</p><table data-operator-table="true">
+<thead>
+<tr>
+<th>算子组</th>
+<th>实际入口</th>
+<th>数据与计算作用</th>
+<th>启用条件</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>classic MTP输入</td>
+<td><code>_FUSED_MTP_INPUT_RMSNORM_KERNEL</code> / <code>e_proj</code> / <code>h_proj</code></td>
+<td>embedding与上一轮C路hidden各自Norm/投影后相加，进入draft V4 decoder。</td>
+<td>DeepSeekV4MTP；position=0只屏蔽embedding分支。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/mtp.py#L152" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/mtp.py#L152">L152</a></td>
+</tr>
+<tr>
+<td>classic MTP输出</td>
+<td><code>mhc_post_tilelang</code> / <code>hc_head_fused_kernel_tilelang</code> / <code>_MTP_SHARED_HEAD_RMSNORM_KERNEL</code></td>
+<td>forward保留flatten C路hidden；compute_logits才collapse、Norm和head。</td>
+<td>classic MTP投机解码；spec_step_idx选择对应predictor层。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/mtp.py#L276" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/mtp.py#L276">L276</a></td>
+</tr>
+<tr>
+<td>DSpark target处理</td>
+<td><code>combine_hidden_states</code> / <code>precompute_and_store_context_kv</code></td>
+<td>target aux streams mean后的特征→main_proj/Norm；预算各draft层context KV并写cache。</td>
+<td>DSpark独立draft；与classic MTP保存的全C路buffer不同。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/dspark.py#L184" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/dspark.py#L184">L184</a></td>
+</tr>
+<tr>
+<td>DSpark heads</td>
+<td><code>DSparkMarkovHead</code> / <code>compute_confidence</code></td>
+<td>前token的低秩Markov bias修正base logits；可选linear+sigmoid估计confidence。</td>
+<td>DSpark query块主干并行；小Markov head与采样依序推进。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/dspark.py#L424" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/dspark.py#L424">L424</a></td>
+</tr>
+<tr>
+<td>图片patch投影</td>
+<td><code>DeepseekV4PatchEmbed.forward</code></td>
+<td>[N,3,p,p]→flatten→带bias Linear→[N,Dv]。</td>
+<td>vision_n_layers&gt;0、允许图片且请求有image input。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L81" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L81">L81</a></td>
+</tr>
+<tr>
+<td>视觉Attention</td>
+<td><code>DeepseekV4VisionAttention</code> / <code>MMEncoderAttention</code></td>
+<td>QKV→2D RoPE→图内双向dense Attention→O投影。</td>
+<td>视觉塔启用；不是语言CSA/HCA或MoE。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L97" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L97">L97</a></td>
+</tr>
+<tr>
+<td>视觉MLP与Norm</td>
+<td><code>DeepseekV4VisionMLP</code> / <code>SiluAndMul</code></td>
+<td>RMSNorm + dense gated MLP + 普通residual。</td>
+<td>ViT block；视觉Linear显式quant_config=None。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L154" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L154">L154</a></td>
+</tr>
+<tr>
+<td>视觉对齐与合并</td>
+<td><code>DeepseekV4Aligner</code> / <code>F.unfold</code> / <code>GELU</code> / <code>embed_input_ids</code></td>
+<td>spatial merge→Linear/GELU/Linear→语言D维；按perm放入prompt的图块位置。</td>
+<td>当前V4 wrapper逐图调用ViT/Aligner；不把V4.1 packed graph入口当成本路径。</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L341" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vision.py#L341">L341</a></td>
+</tr>
+</tbody>
+</table></section>
+
+
+<h2 id="ops-section-11">3. Prefill 与 Decode 的具体变化</h2>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>Prefill</th>
+<th>Decode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主输入投影</td>
+<td>大T GEMM；满足阈值可多stream并行投影</td>
+<td>小T可能选择低延迟GEMM</td>
+</tr>
+<tr>
+<td>Compressor</td>
+<td>先保存本次各token state；仅完整C4/C128边界产生摘要</td>
+<td>一般追加少量state，跨边界时才写新摘要</td>
+</tr>
+<tr>
+<td>Indexer评分</td>
+<td>gather量化K到连续chunk，fp8_fp4_mqa_logits</td>
+<td>fp8_fp4_paged_mqa_logits直接读分页K；可含next_n</td>
+</tr>
+<tr>
+<td>Indexer top-k</td>
+<td>top_k_per_row_prefill</td>
+<td>cooperative / persistent / per-row等selector</td>
+</tr>
+<tr>
+<td>FlashMLA聚合</td>
+<td>反量化gather主KV→合并索引→flash_mla_sparse_fwd</td>
+<td>flash_mla_with_kvcache直接读paged cache</td>
+</tr>
+<tr>
+<td>FlashInfer聚合</td>
+<td>调同一DSV4 API的prefill分支；SM120按至多4请求分chunk</td>
+<td>调同一DSV4 API的decode分支</td>
+</tr>
+<tr>
+<td>mHC</td>
+<td>大T通常拆post和prenorm投影</td>
+<td>本rank T≤32且D%128=0可融合前段</td>
+</tr>
+<tr>
+<td>MoE</td>
+<td>backend不因名字prefill自动改变；staging/GEMM依T选择配置</td>
+<td>专用mega routing小T阈值可能选择GateLinear+top-k</td>
+</tr>
+</tbody>
+</table>
+<p>短上下文CSA可直接全选压缩历史，但CUDA capture时保留固定评分路径。prefill的token总量取决本轮调度/chunk，不受示例buffer容量1024永久限制。</p>
+<h2 id="ops-section-12">4. 后端和精度怎样决定算子</h2>
+<table>
+<thead>
+<tr>
+<th>配置/硬件</th>
+<th>实际路径与关键条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CUDA attention未显式指定</td>
+<td>major12默认FlashInfer SM120，其他CUDA默认FlashMLA</td>
+</tr>
+<tr>
+<td>FLASHINFER_MLA_SPARSE_DSV4</td>
+<td>major12→SM120类，其余→SM100类；仍须满足依赖/硬件资格</td>
+</tr>
+<tr>
+<td>FLASHMLA_SPARSE / FLASHMLA_SPARSE_DSV4</td>
+<td>FlashMLA类，packed V4 cache；prefill和decode入口不同</td>
+</tr>
+<tr>
+<td>FlashInfer SM100</td>
+<td>plain BF16或per-tensor FP8 cache；mixed storage-offset indices</td>
+</tr>
+<tr>
+<td>FlashInfer SM120</td>
+<td>packed V4 cache；SWA与extra两套indices；不沿用SM100 RopeQuant融合</td>
+</tr>
+<tr>
+<td>deep_gemm_mega_moe</td>
+<td>专用EP融合路径；当前模型分支要求normalized sqrtsoftplus routing与FP4专家，SM10x及兼容shape</td>
+</tr>
+<tr>
+<td>flashinfer_moe_ep_mega_deep_gemm</td>
+<td>FI EP的deep_gemm_mega family；不是直接复用原生Triton staging</td>
+</tr>
+<tr>
+<td>flashinfer_moe_ep_mega_cutedsl</td>
+<td>FI EP的nvfp4_cutedsl family；对应runtime与权重pack要求</td>
+</tr>
+<tr>
+<td>普通FusedMoE</td>
+<td>quant_config按expert_dtype选择MXFP4或FP8；显式moe_quant_algo=NVFP4有独立覆盖；selector再选具体kernel</td>
+</tr>
+<tr>
+<td>Indexer默认</td>
+<td>FP8；indexer_kv_dtype=mxfp4才走MXFP4，NVIDIA要求SM100 family</td>
+</tr>
+</tbody>
+</table>
+<p>选择入口：<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1146" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1146">L1146</a>、<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L965" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L965">L965</a>、<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/quant_config.py#L173" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/quant_config.py#L173">L173</a>。</p>
+<p><strong>三个融合条件需要单独看。</strong> mHC post/pre的融合前段要求本rank T≤32且D%128=0，后面仍有big_fuse；FlashInfer SM100把逆RoPE/输出量化融进attention要求128个实际local heads、per-tensor FP8 cache与FP8 wo_a；原生MegaMoE共享专家融合还要求非FI、SP或TP=1、开关允许以及兼容API/权重/scale。资格失败时保留对应的拆分路径。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814">L814</a> <a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L115" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/ops/o_proj.py#L115">L115</a> <a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L955" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L955">L955</a></p>
+<p><strong>精度与存储对应不同对象。</strong> 通用block-FP8 Linear常用G128激活；原生MegaMoE staging是G32 FP8，路由专家通常W4A8；主packed KV是448维G64 FP8+64维BF16尾部；Indexer FP8 cache每128维向量一个FP32 scale，MXFP4则每32维UE8M0 scale。mHC/Router的FP32统计或输出，也不代表全部参数与矩阵乘法都采用FP32。</p>
+<h2 id="ops-section-13">5. 其他平台与模型边界</h2>
+<table>
+<thead>
+<tr>
+<th>平台入口</th>
+<th>当前V4主要实现</th>
+<th>适用边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NVIDIA</td>
+<td>TileLang mHC、CUDA/Triton/CuTe融合、FlashMLA/FI、所选MoE</td>
+<td>上述详细清单的主体</td>
+</tr>
+<tr>
+<td>ROCm</td>
+<td>AMD模型、AITER sparse MLA、AITER/其他MoE与mHC分支</td>
+<td>独立硬件实现；不能套NVIDIA DeepGEMM/NVLink执行细节</td>
+</tr>
+<tr>
+<td>XPU</td>
+<td>XPU Q/KV insert、FP8 decode dequant+sparse attention、xpu_fp8_bmm、_xpu_C mHC</td>
+<td>VL入口当前为NotImplemented stub</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>CPU fused cache/compressor/indexer/MLA、BF16 packed O BMM、CPU mHC</td>
+<td>Indexer为FP8-only；VL入口当前为NotImplemented stub</td>
+</tr>
+</tbody>
+</table>
+<p>平台入口按is_rocm→is_xpu→is_cpu→默认NVIDIA分支导出。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/__init__.py#L17" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/__init__.py#L17">L17</a></p>
+<p>本篇针对<strong>V4</strong>。V4也有DSpark；classic MTP、DSpark是两种独立draft路径。V4.1自己的Full/Reindex/Reuse、Engram、candidate selector、hc_collapse及视觉packed graph接入不应并入普通V4清单。当前V4视觉wrapper逐图eager调用共享ViT/Aligner；共享文件中存在的packed/DP helper不等于该wrapper已调用它。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vl_model.py#L200" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/common/vl_model.py#L200">L200</a></p>
+<h2 id="ops-section-14">6. 源码定位与执行范围</h2>
+<p>源码快照：<code>vllm-project/vllm @ c91dccc0</code>。本篇按调用点追踪到vLLM自有CUDA、Triton、CuTe DSL、TileLang以及外部库native API，未把warmup注册、fake/meta实现、权重加载转换当成每轮算子。</p>
+<table>
+<thead>
+<tr>
+<th>阅读顺序</th>
+<th>文件/入口</th>
+<th>看什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1320" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1320">L1320</a></td>
+<td>decoder的mHC→Attention→mHC→MoE与延迟post</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L471" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/attention.py#L471">L471</a></td>
+<td>投影、Q/KV准备、Indexer、聚合、O</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L354" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/compressor.py#L354">L354</a></td>
+<td>state、压缩边界、CuTe/Triton分支</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L321" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/sparse_attn_indexer.py#L321">L321</a></td>
+<td>prefill/decode评分及top-k调度</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1038" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1038">L1038</a></td>
+<td>mega路由与普通FusedMoE的分界</td>
+</tr>
+<tr>
+<td>6</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/mhc/tilelang.py#L814">L814</a></td>
+<td>post/pre真正融合资格与多个kernel</td>
+</tr>
+<tr>
+<td>7</td>
+<td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/logits_processor.py#L136" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/logits_processor.py#L136">L136</a></td>
+<td>head dtype与词表投影</td>
+</tr>
+</tbody>
+</table>
+<p>外部扩展内部的具体CUDA specialization不由这些Python入口唯一决定。本checkout的CMake固定DeepGEMM为vllm-project/DeepGEMM的e1f418c2、FlashMLA为0eee43b1；生成的FlashMLA接口和FlashInfer native实现不完整存放于当前树。本文确认到可读调用边界，不据此给出GPU实测性能或一次运行的完整launch trace。<a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/deepgemm.cmake#L31" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/deepgemm.cmake#L31">L31</a> <a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/flashmla.cmake#L19" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/flashmla.cmake#L19">L19</a></p>
+<p><a href="../archive/deepseek-v4-framework.html#section-46">返回总文档</a> · <a href="mega-moe-source-guide.html">MegaMoE源码导读</a> · <a href="../archive/deepseek-v4-quantization.html">V4量化详解</a></p>
+<footer>基于本地 vLLM c91dccc08044b1269f351ceec13070fe8f075e10。源码链接固定到上游提交；这是一份调用路径清单，未运行 GPU profiler。Markdown 文档 · MegaMoE 源码导读 · V4 量化详解</footer></main></div><script>document.querySelectorAll('table').forEach(t=>{const w=document.createElement('div');w.className='table-scroll';t.before(w);w.append(t)});let selectedModule='';const groups=[...document.querySelectorAll('.operator-group')];const rows=groups.flatMap(g=>[...g.querySelectorAll('tbody tr')]);function filterOps(){const q=document.getElementById('ops-search').value.trim().toLowerCase();let n=0;groups.forEach(g=>{let seen=0;g.querySelectorAll('tbody tr').forEach(r=>{const visible=(!selectedModule||g.dataset.module===selectedModule)&&(!q||r.textContent.toLowerCase().includes(q));r.hidden=!visible;if(visible){seen++;n++;}});g.hidden=seen===0;});document.getElementById('ops-visible').value=n+' / '+rows.length+' 项算子入口或功能组';}document.getElementById('ops-search').addEventListener('input',filterOps);document.querySelectorAll('[data-ops-filter]').forEach(b=>b.addEventListener('click',()=>{selectedModule=b.dataset.opsFilter;document.querySelectorAll('[data-ops-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));filterOps();}));filterOps();const nav=document.querySelector('nav');const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)nav.querySelectorAll('a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id))})},{rootMargin:'-10% 0px -75% 0px'});document.querySelectorAll('main h2[id]').forEach(h=>obs.observe(h));</script></body></html>
