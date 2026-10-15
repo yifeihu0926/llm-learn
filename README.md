@@ -8,6 +8,14 @@
 - **[下载交互手册](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/ds-handbook.html)**：单文件 HTML，下载后双击打开；8 组交互计算可离线播放，不含视频。
 - [个人工作笔记](notes/)：与模型手册分开保存。
 
+## CUDA 卷积融合算子
+
+- **[在线阅读调研与数学定义](conv-fusion.md)**：Conv + Bias + Residual + Activation 的语义、implicit GEMM、kernel 计算、cuDNN/CUTLASS 路线和验证方法。
+- **[下载完整交互阅读版](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion.html)**：正文、公式和三种计算动画内嵌，下载后用浏览器离线打开。
+- [独立计算动画](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion-animation.html)：滑窗乘加 → 矩阵映射 → CUDA tile 与融合 epilogue；支持播放、暂停、单步和进度拖动。
+
+整理日期：2026-10-15。面向 NVIDIA GPU / CUDA；动画为小整数教学模型，尚无生产 CUDA kernel 或 GPU 性能实测。
+
 ## 新版框架
 
 | 章节 | 要解决的问题 |
