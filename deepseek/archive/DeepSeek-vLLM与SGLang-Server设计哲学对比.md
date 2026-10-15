@@ -1,6 +1,6 @@
 # vLLM 与 SGLang Server 设计哲学对比
 
-> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-本机核验与更正.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
+> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-%E6%9C%AC%E6%9C%BA%E6%A0%B8%E9%AA%8C%E4%B8%8E%E6%9B%B4%E6%AD%A3.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
 
 > 对比对象是本地两个真实 Git checkout 的固定快照，不是泛指项目所有历史版本。
 > - vLLM：`c91dccc08044b1269f351ceec13070fe8f075e10`
@@ -59,19 +59,19 @@ FastAPI HTTP route
 
 ### 4.1 前端与 EngineCore 解耦
 
-`AsyncLLM` 是异步引擎包装层，负责输入处理、请求提交、输出关联和客户端侧生命周期；定义可见 [`async_llm.py:80`](../repos/vllm/vllm/v1/engine/async_llm.py)。典型添加请求进入 EngineCoreClient（`async_llm.py` 中 `_add_request`，约 533–553 行），生成器读取 per-request collector 并流式产出（`generate`，约 666 行起）。后台 output handler 汇聚 EngineCore 输出，再交给 OutputProcessor/collector（约 793 行起）。
+`AsyncLLM` 是异步引擎包装层，负责输入处理、请求提交、输出关联和客户端侧生命周期；定义可见 [`async_llm.py:80`](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/engine/async_llm.py#L80)。典型添加请求进入 EngineCoreClient（`async_llm.py` 中 `_add_request`，约 533–553 行），生成器读取 per-request collector 并流式产出（`generate`，约 666 行起）。后台 output handler 汇聚 EngineCore 输出，再交给 OutputProcessor/collector（约 793 行起）。
 
-`EngineCoreClient` 抽象隐藏 EngineCore 的部署/通信模式；实际类型包括进程内、同步或异步多进程客户端。API 构造逻辑 `build_async_engine_client_from_engine_args` 创建配置及 AsyncLLM 并负责 shutdown，见 [`entry.py:69-114`](../repos/vllm/vllm/entrypoints/launchers/api_server/entry.py)。因此 HTTP serving 不必知道模型执行位于本进程还是独立 EngineCore。
+`EngineCoreClient` 抽象隐藏 EngineCore 的部署/通信模式；实际类型包括进程内、同步或异步多进程客户端。API 构造逻辑 `build_async_engine_client_from_engine_args` 创建配置及 AsyncLLM 并负责 shutdown，见 [`entry.py:69-114`](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/entrypoints/launchers/api_server/entry.py#L69-L114)。因此 HTTP serving 不必知道模型执行位于本进程还是独立 EngineCore。
 
 ### 4.2 EngineCore 是 token-progress inner loop
 
-V1 Scheduler 明确不建模为两个僵硬阶段「prefill queue / decode queue」：每步尝试让 `num_computed_tokens` 追上 `num_tokens_with_spec`，以同一 token-progress 表示兼容 chunked prefill、prefix cache 和 speculative decode，见 [`scheduler.py:574-585`](../repos/vllm/vllm/v1/core/sched/scheduler.py)。调度先处理 running requests，在 token/input budget 下计算本轮应处理 token；KV slot 不能分配时可按策略 preempt running request（约 `scheduler.py:640-839`）。
+V1 Scheduler 明确不建模为两个僵硬阶段「prefill queue / decode queue」：每步尝试让 `num_computed_tokens` 追上 `num_tokens_with_spec`，以同一 token-progress 表示兼容 chunked prefill、prefix cache 和 speculative decode，见 [`scheduler.py:574-585`](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/core/sched/scheduler.py#L574-L585)。调度先处理 running requests，在 token/input budget 下计算本轮应处理 token；KV slot 不能分配时可按策略 preempt running request（约 `scheduler.py:640-839`）。
 
-EngineCore 执行一个 step 时，职责链是 scheduler 输出 → model executor → 输出采样/更新 scheduler（`core.py` 的 step，约 630–659 行）。可选 batch queue 允许异步提交多个批次，减轻 PP pipeline bubble，但输出消费和请求状态更新更复杂（[`core.py:670-783`](../repos/vllm/vllm/v1/engine/core.py)）。
+EngineCore 执行一个 step 时，职责链是 scheduler 输出 → model executor → 输出采样/更新 scheduler（`core.py` 的 step，约 630–659 行）。可选 batch queue 允许异步提交多个批次，减轻 PP pipeline bubble，但输出消费和请求状态更新更复杂（[`core.py:670-783`](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/engine/core.py#L670-L783)）。
 
 ### 4.3 KV cache 是有接口契约的 block 管理系统
 
-`KVCacheManager` 对 Scheduler 隐藏内部 block 数据结构，以 group-oriented `KVCacheBlocks` 作为边界（[`kv_cache_manager.py:34-54`](../repos/vllm/vllm/v1/core/kv_cache_manager.py)）。它基于 KV specs 和 cache groups 做分配、释放、prefix hit 和外部 KV connector 协作。无法分配时返回无资源结果，由 scheduler 延后或抢占，而不是 allocator 自己决定请求策略。
+`KVCacheManager` 对 Scheduler 隐藏内部 block 数据结构，以 group-oriented `KVCacheBlocks` 作为边界（[`kv_cache_manager.py:34-54`](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/core/kv_cache_manager.py#L34-L54)）。它基于 KV specs 和 cache groups 做分配、释放、prefix hit 和外部 KV connector 协作。无法分配时返回无资源结果，由 scheduler 延后或抢占，而不是 allocator 自己决定请求策略。
 
 BlockPool 以 hash/block/refcount 管理共享缓存块：prefix caching 对完整块做查找/复用，引用计数控制正在使用的数据与可驱逐数据。注意 prefix cache hit 通常不意味着可以跳过末尾 token 计算；实现还需保留最后位置 logits 等语义。外部 KV transfer、滑窗、分组 cache、Mamba 等规格会扩展行为。
 
@@ -86,23 +86,23 @@ BlockPool 以 hash/block/refcount 管理共享缓存块：prefix caching 对完�
 
 ### 5.1 HTTP/Tokenizer/Scheduler/Worker 进程职责分离
 
-SGLang `http_server.py` 是 FastAPI 推理 HTTP 入口，文件说明在 [`http_server.py:14-18`](../repos/sglang/python/sglang/srt/entrypoints/http_server.py)。`/generate` 流式处理在 [`http_server.py:910-951`](../repos/sglang/python/sglang/srt/entrypoints/http_server.py)：route 调用 TokenizerManager 的 async generator，SSE 编码由 HTTP 层完成，断连交由 abort task/请求生命周期处理。OpenAI 等协议 route 将协议请求转换后仍走 runtime。
+SGLang `http_server.py` 是 FastAPI 推理 HTTP 入口，文件说明在 [`http_server.py:14-18`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/entrypoints/http_server.py#L14-L18)。`/generate` 流式处理在 [`http_server.py:910-951`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/entrypoints/http_server.py#L910-L951)：route 调用 TokenizerManager 的 async generator，SSE 编码由 HTTP 层完成，断连交由 abort task/请求生命周期处理。OpenAI 等协议 route 将协议请求转换后仍走 runtime。
 
-`TokenizerManager.generate_request` 负责规范化 batch/参数、创建 RID state、校验、处理 pause/weight-update 锁、tokenize，再发 tokenized request 并异步等回包，见 [`tokenizer_manager.py:859-931`](../repos/sglang/python/sglang/srt/managers/tokenizer_manager.py)。请求与控制消息用 typed IO structs 和 socket 通信；SRT 并非 HTTP handler 直接调用 GPU 模型。
+`TokenizerManager.generate_request` 负责规范化 batch/参数、创建 RID state、校验、处理 pause/weight-update 锁、tokenize，再发 tokenized request 并异步等回包，见 [`tokenizer_manager.py:859-931`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/tokenizer_manager.py#L859-L931)。请求与控制消息用 typed IO structs 和 socket 通信；SRT 并非 HTTP handler 直接调用 GPU 模型。
 
-`engine.py` 组织 TokenizerManager、Scheduler、Detokenizer 等 runtime process；`scheduler.py` 的 `run_scheduler_process` 创建 Scheduler 并运行事件循环，见 [`scheduler.py:5876-5958`](../repos/sglang/python/sglang/srt/managers/scheduler.py)。
+`engine.py` 组织 TokenizerManager、Scheduler、Detokenizer 等 runtime process；`scheduler.py` 的 `run_scheduler_process` 创建 Scheduler 并运行事件循环，见 [`scheduler.py:5876-5958`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py#L5876-L5958)。
 
 ### 5.2 Scheduler 是运行时批处理状态机
 
-Normal loop 主流程是 ingest requests → 选下一批 → run_batch → process_batch_result，见 [`scheduler.py:1907-1939`](../repos/sglang/python/sglang/srt/managers/scheduler.py)。Overlap loop 把上批结果处理与当前 batch 的 GPU forward 尽量重叠，用队列、stream/event/WAR barrier 维护依赖关系，见 [`scheduler.py:1941-2014`](../repos/sglang/python/sglang/srt/managers/scheduler.py)。
+Normal loop 主流程是 ingest requests → 选下一批 → run_batch → process_batch_result，见 [`scheduler.py:1907-1939`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py#L1907-L1939)。Overlap loop 把上批结果处理与当前 batch 的 GPU forward 尽量重叠，用队列、stream/event/WAR barrier 维护依赖关系，见 [`scheduler.py:1941-2014`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py#L1941-L2014)。
 
-`get_next_batch_to_run` 融合上轮 prefill/extend 与 running decode，处理 chunked request、HiSparse、DP attention 等分支，再决定加新 prefill 还是跑 decode，见 [`scheduler.py:3643-3785`](../repos/sglang/python/sglang/srt/managers/scheduler.py)。因此 continuous batching 的核心不只是「有 batch」：它依赖 running batch 生命周期、chunked prefill 的搬运、KV 状态变化以及输出状态回流。
+`get_next_batch_to_run` 融合上轮 prefill/extend 与 running decode，处理 chunked request、HiSparse、DP attention 等分支，再决定加新 prefill 还是跑 decode，见 [`scheduler.py:3643-3785`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py#L3643-L3785)。因此 continuous batching 的核心不只是「有 batch」：它依赖 running batch 生命周期、chunked prefill 的搬运、KV 状态变化以及输出状态回流。
 
 ### 5.3 Prefix cache 是调度决策的一等输入
 
-SGLang 的 `RadixCache` 基于 token key 查最长公共前缀，且 key 可用 `extra_key`/`cache_salt` 做 namespace 隔离，见 [`radix_cache.py:59-82`](../repos/sglang/python/sglang/srt/mem_cache/radix_cache.py)、[`radix_cache.py:355-413`](../repos/sglang/python/sglang/srt/mem_cache/radix_cache.py)。插入、引用保护和淘汰有各自显式操作（`radix_cache.py:415-435, 497-615`）。prefix match 会受到 token ID、page alignment、命名空间和具体 allocator/cache 类型影响，不是对原始文本做任意共享。
+SGLang 的 `RadixCache` 基于 token key 查最长公共前缀，且 key 可用 `extra_key`/`cache_salt` 做 namespace 隔离，见 [`radix_cache.py:59-82`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/mem_cache/radix_cache.py#L59-L82)、[`radix_cache.py:355-413`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/mem_cache/radix_cache.py#L355-L413)。插入、引用保护和淘汰有各自显式操作（`radix_cache.py:415-435, 497-615`）。prefix match 会受到 token ID、page alignment、命名空间和具体 allocator/cache 类型影响，不是对原始文本做任意共享。
 
-新 prefill batch 构造时 `SchedulePolicy.calc_priority` 调整 waiting queue，`PrefillAdder` 将 prefix hit、缺失 token、chunk 大小、KV memory budget 等纳入准入。见 [`scheduler.py:3807-3926`](../repos/sglang/python/sglang/srt/managers/scheduler.py) 与 [`schedule_policy.py:621-740`](../repos/sglang/python/sglang/srt/managers/schedule_policy.py)。策略有 FCFS、cache-aware 等变体；某些大队列情形会退回 FCFS，不能概括成始终以最长缓存前缀优先。
+新 prefill batch 构造时 `SchedulePolicy.calc_priority` 调整 waiting queue，`PrefillAdder` 将 prefix hit、缺失 token、chunk 大小、KV memory budget 等纳入准入。见 [`scheduler.py:3807-3926`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py#L3807-L3926) 与 [`schedule_policy.py:621-740`](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/schedule_policy.py#L621-L740)。策略有 FCFS、cache-aware 等变体；某些大队列情形会退回 FCFS，不能概括成始终以最长缓存前缀优先。
 
 ### 5.4 哲学归纳
 
@@ -162,17 +162,17 @@ SGLang 的 `RadixCache` 基于 token key 查最长公共前缀，且 key 可用 
 
 ### 8.2 vLLM：Platform 插件作为硬件边界，内核按平台/能力组合选择
 
-vLLM 在 `vllm.platforms` 维护平台抽象与运行时发现逻辑。内置检测覆盖 CUDA、ROCm、XPU、CPU、TPU；当前快照的 README 还列出 Intel Gaudi、IBM Spyre、Huawei Ascend、Rebellions、Apple Silicon、MetaX 等 out-of-tree（OOT）硬件插件示例。发现插件时只允许一个 platform plugin 被激活；显式 CPU target 可优先覆盖宿主机上的 accelerator 检测。每个平台类提供设备类型、设备能力、内存/通信、默认 attention/backend 和编译相关策略，平台抽象详见 [vLLM platform interface](../repos/vllm/vllm/platforms/interface.py) 与 [platform discovery](../repos/vllm/vllm/platforms/__init__.py)。
+vLLM 在 `vllm.platforms` 维护平台抽象与运行时发现逻辑。内置检测覆盖 CUDA、ROCm、XPU、CPU、TPU；当前快照的 README 还列出 Intel Gaudi、IBM Spyre、Huawei Ascend、Rebellions、Apple Silicon、MetaX 等 out-of-tree（OOT）硬件插件示例。发现插件时只允许一个 platform plugin 被激活；显式 CPU target 可优先覆盖宿主机上的 accelerator 检测。每个平台类提供设备类型、设备能力、内存/通信、默认 attention/backend 和编译相关策略，平台抽象详见 [vLLM platform interface](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/interface.py) 与 [platform discovery](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/__init__.py)。
 
-落到关键算子上，vLLM 使用**平台族候选表 + 实现自检/可用性筛选**而非单一跨厂商实现。例如 [linear kernel selector](../repos/vllm/vllm/model_executor/kernels/linear/__init__.py) 按 `PlatformEnum.CUDA/ROCM/XPU/CPU` 为 FP8、INT8、低比特线性层等登记不同候选及优先级：CUDA 可选 CUTLASS、FlashInfer、Marlin 等；ROCm 有 AITER/ROCm 专用实现并在部分算子使用 Triton；XPU 与 CPU 则走各自专用 kernel 或较通用实现。Attention 也有 [backend registry](../repos/vllm/vllm/v1/attention/backends/registry.py)，其中分别登记 FlashAttention、FlashInfer、ROCm AITER、XPU/CPU 等实现；平台 backend 再按照设备代际、dtype、模型特征和配置来判定优先级或可用性。
+落到关键算子上，vLLM 使用**平台族候选表 + 实现自检/可用性筛选**而非单一跨厂商实现。例如 [linear kernel selector](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/__init__.py) 按 `PlatformEnum.CUDA/ROCM/XPU/CPU` 为 FP8、INT8、低比特线性层等登记不同候选及优先级：CUDA 可选 CUTLASS、FlashInfer、Marlin 等；ROCm 有 AITER/ROCm 专用实现并在部分算子使用 Triton；XPU 与 CPU 则走各自专用 kernel 或较通用实现。Attention 也有 [backend registry](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/attention/backends/registry.py)，其中分别登记 FlashAttention、FlashInfer、ROCm AITER、XPU/CPU 等实现；平台 backend 再按照设备代际、dtype、模型特征和配置来判定优先级或可用性。
 
 **设计特点**：vLLM 的主干执行/调度抽象尽量保持一致，把硬件差异收敛在 platform implementation、attention/linear kernel registry、worker/executor 等边界。OOT 插件可减少将厂商专属代码直接并入核心的压力，但平台插件“能被发现”本身不等于所有模型和所有 kernel 都自动可用；部分插件还需要独立编译产物、依赖栈或对特定模型/算子做适配。
 
 ### 8.3 SGLang：SRTPlatform 提供运行时工厂，同时以硬件目录和算子分派接入专用实现
 
-SGLang SRT 通过 [平台发现模块](../repos/sglang/python/sglang/srt/platforms/__init__.py) 懒加载一个 `current_platform`。无插件时按环境识别内置 CUDA、ROCm、NPU、XPU 或 CPU；`SGLANG_PLATFORM` 可指定 entry-point 插件，若自动发现到多个 OOT platform 则要求显式选择。插件需实现 [SRTPlatform interface](../repos/sglang/python/sglang/srt/platforms/interface.py)，向 SRT 提供 attention backend、graph runner、MHA/MLA/DSA KV pool、paged allocator、compile backend、量化配置及能力标志等工厂/能力接口；[DeviceMixin](../repos/sglang/python/sglang/srt/platforms/device_mixin.py) 统一设备查询和基础设备操作。
+SGLang SRT 通过 [平台发现模块](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/__init__.py) 懒加载一个 `current_platform`。无插件时按环境识别内置 CUDA、ROCm、NPU、XPU 或 CPU；`SGLANG_PLATFORM` 可指定 entry-point 插件，若自动发现到多个 OOT platform 则要求显式选择。插件需实现 [SRTPlatform interface](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/interface.py)，向 SRT 提供 attention backend、graph runner、MHA/MLA/DSA KV pool、paged allocator、compile backend、量化配置及能力标志等工厂/能力接口；[DeviceMixin](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/device_mixin.py) 统一设备查询和基础设备操作。
 
-SGLang 同时允许平台差异下沉到 `hardware_backend` 及算子实现目录，而不强制所有厂商都挤进一份通用代码。例如本 checkout 存在 Ascend NPU 专用 attention/backend 文件、XPU 后端、MUSA 后端和 MLX 路径。算子侧，[SGLang kernel organization 说明](../repos/sglang/python/sglang/kernels/README.md) 描述了 `BaseFusedOp` 的两条正交维度：一条是实现来源（Triton、FlashInfer、AITER、Torch-NPU 等），另一条是设备平台路径（CUDA/HIP/NPU/XPU/MUSA/CPU/OOT）；能力声明、平台信息和调用 shape/dtype gate 参与选择，不可用时可退到 native Torch 路径。要注意此处文档描述的是相应 fused-op 路由，不应推导为 SGLang 所有 kernel 都有完整的跨平台 fallback。
+SGLang 同时允许平台差异下沉到 `hardware_backend` 及算子实现目录，而不强制所有厂商都挤进一份通用代码。例如本 checkout 存在 Ascend NPU 专用 attention/backend 文件、XPU 后端、MUSA 后端和 MLX 路径。算子侧，[SGLang kernel organization 说明](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/kernels/README.md) 描述了 `BaseFusedOp` 的两条正交维度：一条是实现来源（Triton、FlashInfer、AITER、Torch-NPU 等），另一条是设备平台路径（CUDA/HIP/NPU/XPU/MUSA/CPU/OOT）；能力声明、平台信息和调用 shape/dtype gate 参与选择，不可用时可退到 native Torch 路径。要注意此处文档描述的是相应 fused-op 路由，不应推导为 SGLang 所有 kernel 都有完整的跨平台 fallback。
 
 SGLang README 当前快照列举 NVIDIA、AMD、Google TPU、Intel GPU/CPU、Apple Silicon、Huawei Ascend、Moore Threads 等硬件；但其中 TPU 有 SGL-JAX/SGL-torchtpu 等独立生态路径，Apple Silicon 包含 Metal/MLX 路径，不能一概理解成与 CUDA SRT 同一套 runner 的等价实现。硬件列表是项目支持面说明，不代表每一型号、模型、量化格式和功能都通过同一测试矩阵。
 
@@ -192,8 +192,8 @@ SGLang README 当前快照列举 NVIDIA、AMD、Google TPU、Intel GPU/CPU、App
 
 ### 8.5 相关源码入口
 
-- vLLM：[平台接口](../repos/vllm/vllm/platforms/interface.py)、[平台发现/插件](../repos/vllm/vllm/platforms/__init__.py)、[CUDA platform](../repos/vllm/vllm/platforms/cuda.py)、[ROCm platform](../repos/vllm/vllm/platforms/rocm.py)、[XPU platform](../repos/vllm/vllm/platforms/xpu.py)、[Attention registry](../repos/vllm/vllm/v1/attention/backends/registry.py)、[linear kernel 候选表](../repos/vllm/vllm/model_executor/kernels/linear/__init__.py)。
-- SGLang：[平台发现/插件](../repos/sglang/python/sglang/srt/platforms/__init__.py)、[SRTPlatform 接口](../repos/sglang/python/sglang/srt/platforms/interface.py)、[DeviceMixin](../repos/sglang/python/sglang/srt/platforms/device_mixin.py)、[启动平台 hook](../repos/sglang/python/sglang/srt/arg_groups/platform_hook.py)、[kernel backend 说明](../repos/sglang/python/sglang/kernels/README.md)、[NPU backend 目录](../repos/sglang/python/sglang/srt/hardware_backend/npu/attention)。
+- vLLM：[平台接口](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/interface.py)、[平台发现/插件](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/__init__.py)、[CUDA platform](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/cuda.py)、[ROCm platform](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/rocm.py)、[XPU platform](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/platforms/xpu.py)、[Attention registry](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/attention/backends/registry.py)、[linear kernel 候选表](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/kernels/linear/__init__.py)。
+- SGLang：[平台发现/插件](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/__init__.py)、[SRTPlatform 接口](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/interface.py)、[DeviceMixin](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/platforms/device_mixin.py)、[启动平台 hook](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/arg_groups/platform_hook.py)、[kernel backend 说明](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/kernels/README.md)、[NPU backend 目录](https://github.com/sgl-project/sglang/tree/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/hardware_backend/npu/attention)。
 
 ## 9. 推荐复盘路线
 
@@ -207,24 +207,24 @@ SGLang README 当前快照列举 NVIDIA、AMD、Google TPU、Intel GPU/CPU、App
 
 ### vLLM
 
-- [FastAPI server 兼容入口（deprecated shim）](../repos/vllm/vllm/entrypoints/openai/api_server.py)
-- [API server app/engine 构造](../repos/vllm/vllm/entrypoints/launchers/api_server/entry.py)
-- [AsyncLLM](../repos/vllm/vllm/v1/engine/async_llm.py)
-- [EngineCore](../repos/vllm/vllm/v1/engine/core.py)
-- [EngineCoreClient](../repos/vllm/vllm/v1/engine/core_client.py)
-- [V1 Scheduler](../repos/vllm/vllm/v1/core/sched/scheduler.py)
-- [KVCacheManager](../repos/vllm/vllm/v1/core/kv_cache_manager.py)
-- [BlockPool](../repos/vllm/vllm/v1/core/block_pool.py)
+- [FastAPI server 兼容入口（deprecated shim）](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/entrypoints/openai/api_server.py)
+- [API server app/engine 构造](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/entrypoints/launchers/api_server/entry.py)
+- [AsyncLLM](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/engine/async_llm.py)
+- [EngineCore](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/engine/core.py)
+- [EngineCoreClient](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/engine/core_client.py)
+- [V1 Scheduler](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/core/sched/scheduler.py)
+- [KVCacheManager](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/core/kv_cache_manager.py)
+- [BlockPool](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/v1/core/block_pool.py)
 
 ### SGLang
 
-- [HTTP server](../repos/sglang/python/sglang/srt/entrypoints/http_server.py)
-- [Engine process orchestration](../repos/sglang/python/sglang/srt/entrypoints/engine.py)
-- [TokenizerManager](../repos/sglang/python/sglang/srt/managers/tokenizer_manager.py)
-- [Scheduler](../repos/sglang/python/sglang/srt/managers/scheduler.py)
-- [Schedule policy / PrefillAdder](../repos/sglang/python/sglang/srt/managers/schedule_policy.py)
-- [RadixCache](../repos/sglang/python/sglang/srt/mem_cache/radix_cache.py)
-- [TP worker](../repos/sglang/python/sglang/srt/managers/tp_worker.py)
+- [HTTP server](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/entrypoints/http_server.py)
+- [Engine process orchestration](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/entrypoints/engine.py)
+- [TokenizerManager](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/tokenizer_manager.py)
+- [Scheduler](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/scheduler.py)
+- [Schedule policy / PrefillAdder](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/schedule_policy.py)
+- [RadixCache](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/mem_cache/radix_cache.py)
+- [TP worker](https://github.com/sgl-project/sglang/blob/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt/managers/tp_worker.py)
 
 ## 10. 本次工作状态
 

@@ -4,7 +4,7 @@
 
 ## 1. 先把算子放回模型
 
-![vLLM DeepSeek V4 主干与Attention算子路径](vllm-v4-operators-map.svg)
+![vLLM DeepSeek V4 主干与Attention算子路径](../assets/vllm-v4-operators-map.svg)
 
 **读图。** 首层先把embedding作为重复C路残差的来源；mHC pre收缩并融合子层输入Norm。Attention输出经post/pre进入MoE；MoE结果携带residual/mix返回，交给下一层开头回写。最后一层独立post，然后hc_head收束、最终Norm，compute_logits再投词表。图中每个框可能包含多个kernel，也可能与相邻步骤部分融合。
 
@@ -237,4 +237,4 @@ PP边界交付已重建的[T,C,D] IntermediateTensors，send/recv由执行器安
 
 外部扩展内部的具体CUDA specialization不由这些Python入口唯一决定。本checkout的CMake固定DeepGEMM为vllm-project/DeepGEMM的e1f418c2、FlashMLA为0eee43b1；生成的FlashMLA接口和FlashInfer native实现不完整存放于当前树。本文确认到可读调用边界，不据此给出GPU实测性能或一次运行的完整launch trace。[源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/deepgemm.cmake#L31) [源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/cmake/external_projects/flashmla.cmake#L19)
 
-[返回总文档](deepseek-v4-framework.html#section-46) · [MegaMoE源码导读](mega-moe-source-guide.html) · [V4量化详解](deepseek-v4-quantization.html)
+[返回总文档](../archive/deepseek-v4-framework.html#section-46) · [MegaMoE源码导读](mega-moe-source-guide.html) · [V4量化详解](../archive/deepseek-v4-quantization.html)

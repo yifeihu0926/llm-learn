@@ -2,7 +2,7 @@
 
 资料核查与整理日期：2026-10-15。目标平台：NVIDIA GPU / CUDA。
 
-[下载完整交互阅读版](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion.html) · [下载独立动画](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion-animation.html) · [返回资料主页](README.md)
+[下载完整交互阅读版](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/cuda/conv-fusion/conv-fusion.html) · [下载独立动画](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/cuda/conv-fusion/conv-fusion-animation.html) · [返回资料主页](../../README.md)
 
 HTML 下载后用浏览器打开；完整阅读版将正文、公式和动画内嵌在同一个文件中，不需要安装依赖或启动服务。GitHub 文件预览页只展示源码，不会执行 HTML。官方参考链接需要联网。
 
@@ -275,4 +275,4 @@ PyTorch 自定义算子需要 schema、mutation/alias、FakeTensor，训练还�
 
 本资料交付的是设计调研、公式和计算动画，尚未实现或执行生产 CUDA kernel，也没有 GPU 性能实测。动画使用 JavaScript Number 与小整数，不模拟 FP16/BF16 舍入；逻辑 tile 不是硬件线程布局。数学与全部输出可独立复算，不能用浏览器动画检查代替 GPU 数值或性能验证。
 
-公开链接中的 latest/main 会变化；实现时应另行锁定 cuDNN/CUTLASS/CUDA 版本和源码提交。HTML 公式由已有 MathJax 3.2.1 工具预先生成 SVG，运行时无需联网；许可见仓库 [第三方组件说明](THIRD-PARTY-NOTICES.md) 和 [MathJax 许可](MathJax-LICENSE.txt)。
+公开链接中的 latest/main 会变化；实现时应另行锁定 cuDNN/CUTLASS/CUDA 版本和源码提交。HTML 公式由已有 MathJax 3.2.1 工具预先生成 SVG，运行时无需联网；许可见仓库 [第三方组件说明](../../licenses/THIRD-PARTY-NOTICES.md) 和 [MathJax 许可](../../licenses/MathJax-LICENSE.txt)。

@@ -1049,7 +1049,7 @@ V4 报告披露超过 32T token 的预训练，并描述领域 SFT/RL teacher �
 
 ### 先把算子放回模型
 
-![vLLM DeepSeek V4 主干与Attention算子路径](vllm-v4-operators-map.svg)
+![vLLM DeepSeek V4 主干与Attention算子路径](assets/vllm-v4-operators-map.svg)
 
 **读图。** 首层先把embedding作为重复C路残差的来源；mHC pre收缩并融合子层输入Norm。Attention输出经post/pre进入MoE；MoE结果携带residual/mix返回，交给下一层开头回写。最后一层独立post，然后hc_head收束、最终Norm，compute_logits再投词表。图中每个框可能包含多个kernel，也可能与相邻步骤部分融合。
 
@@ -1172,7 +1172,7 @@ mHC 中 residual 为 BF16，系数/关键统计为 FP32，prenorm 可用 TF32 GE
 | 普通FusedMoE专家 | `MoERunner` / `quant_method.apply` / `quant_method.apply_monolithic` | runner内生成gate logits，modular或monolithic kernel完成专家计算及通信。 | 非mega家族；expert_dtype fp4→MXFP4，显式NVFP4 override→ModelOpt；fp8→FP8方法。 | [源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L865) |
 | 共享专家MLP | `gate_up_proj` / `SiluAndMulWithClamp` / `SiluAndMul` / `down_proj` | D→2SI→SwiGLU→SI→D，再与routed输出相加。 | 独立共享路径；原生MegaMoE满足完整资格时可融合shared，FI使用独立shared。 | [源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185) |
 
-路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见[源码导读](mega-moe-source-guide.html)。
+路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见[源码导读](reference/mega-moe-source-guide.html)。
 
 #### [输出] 主干收束、LM Head 与采样
 

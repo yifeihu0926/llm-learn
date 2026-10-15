@@ -230,7 +230,7 @@ owner 全部本地 L2 写回及 epilogue grid 同步完成后发布本轮 releas
 
 同一数据块仍遵守依赖；重叠依靠不同块、tile、CTA 和专职 warp 的流水。共享资源、带宽与尾部同步会限制重叠，动画时间线只说明机制，没有 GPU 实测加速比。
 
-[查看完整交互动画](mega-moe-full.html)
+[查看完整交互动画](../archive/mega-moe-full.html)
 
 ## 8. 回到源码时的阅读顺序
 
@@ -245,4 +245,4 @@ owner 全部本地 L2 写回及 epilogue grid 同步完成后发布本轮 releas
 
 主计算阅读线为 `transform_weights → fp8_fp4_mega_moe → C++ checks → TMA/JIT launch → scheduler/loaders/MMA → epilogue`。buffer 的细节可回看动画；本篇把重点放在其后面的消费者。
 
-[返回总文档 MegaMoE 章节](deepseek-v4-framework.html#section-46) · [V4 量化组件与官方选择](deepseek-v4-quantization.html)
+[返回总文档 MegaMoE 章节](../archive/deepseek-v4-framework.html#section-46) · [V4 量化组件与官方选择](../archive/deepseek-v4-quantization.html)

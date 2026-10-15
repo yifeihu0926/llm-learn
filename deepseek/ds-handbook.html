@@ -1952,7 +1952,7 @@ while not stop(next_id):
 <td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185">L185</a></td>
 </tr>
 </tbody>
-</table></div><p>路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见<a href="mega-moe-source-guide.html">源码导读</a>。</p></section><section class="operator-group" data-module="输出"><h4 id="handbook-vllm-ops-section-8">[输出] 主干收束、LM Head 与采样</h4><p>主模型forward产hidden；compute_logits和Sampler属于之后的独立调用。runner通常只选择需要出token的hidden行投词表。</p><div class="table-wrap"><table data-operator-table="true">
+</table></div><p>路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见<a href="reference/mega-moe-source-guide.html">源码导读</a>。</p></section><section class="operator-group" data-module="输出"><h4 id="handbook-vllm-ops-section-8">[输出] 主干收束、LM Head 与采样</h4><p>主模型forward产hidden；compute_logits和Sampler属于之后的独立调用。runner通常只选择需要出token的hidden行投词表。</p><div class="table-wrap"><table data-operator-table="true">
 <thead>
 <tr>
 <th>算子组</th>

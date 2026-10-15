@@ -1,14 +1,14 @@
 # DeepSeek-V4.1-Flash 架构与代码分析
 
-> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-本机核验与更正.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
+> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-%E6%9C%AC%E6%9C%BA%E6%A0%B8%E9%AA%8C%E4%B8%8E%E6%9B%B4%E6%AD%A3.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
 
 > DeepSeek-V4.1（2026-09-10 开源）**不是 V4 的小版本迭代**，而是一次大改：
 > 引入 Causal Encoder-Decoder、CSA2 跨层共享、Engram 条件记忆、DSpark 投机解码与视觉塔。
 > 本文档以**官方参考实现**（`inference/model.py`，1309 行）为准，
 > 逐模块分析并给出与 V4 的差异；vLLM / SGLang 的适配见 §7。
 >
-> 配套：[DeepSeek-V4-代码调用结构分析.md](DeepSeek-V4-代码调用结构分析.md)、
-> [DeepSeek-V4-张量数据流详解.md](DeepSeek-V4-张量数据流详解.md)
+> 配套：[DeepSeek-V4-代码调用结构分析.md](DeepSeek-V4-%E4%BB%A3%E7%A0%81%E8%B0%83%E7%94%A8%E7%BB%93%E6%9E%84%E5%88%86%E6%9E%90.md)、
+> [DeepSeek-V4-张量数据流详解.md](DeepSeek-V4-%E5%BC%A0%E9%87%8F%E6%95%B0%E6%8D%AE%E6%B5%81%E8%AF%A6%E8%A7%A3.md)
 
 ## 目录
 
@@ -42,8 +42,8 @@
 |---|---|---|
 | HF `deepseek-ai/DeepSeek-V4.1-Flash` | main（2026-09-10 创建，76.7 万下载） | [configs/v41/](../configs/v41/) |
 | 官方参考实现 | `inference/model.py` 1309 行、`kernel.py`、`engram.py`、`vision.py`、`image_processor.py` | [configs/v41/](../configs/v41/) |
-| vLLM | commit `c91dccc0`，`vllm/models/deepseek_v41/` **19,322 行** | [repos/vllm/](../repos/vllm/) |
-| SGLang | commit `bb9a820f`，`dsv41_sparse.py` / `v41_indexer/` 等 | [repos/sglang/](../repos/sglang/) |
+| vLLM | commit `c91dccc0`，`vllm/models/deepseek_v41/` **19,322 行** | [repos/vllm/](https://github.com/vllm-project/vllm/tree/c91dccc08044b1269f351ceec13070fe8f075e10) |
+| SGLang | commit `bb9a820f`，`dsv41_sparse.py` / `v41_indexer/` 等 | [repos/sglang/](https://github.com/sgl-project/sglang/tree/bb9a820f09f97480bfc6d07564fb2b691b8857a3) |
 
 **未下载权重**。抓取的文件：`config.json`、`README.md`、`chat_template.jinja`、
 `inference/{config.json,generate.py,convert.py,model.py,kernel.py,engram.py,vision.py,image_processor.py}`。

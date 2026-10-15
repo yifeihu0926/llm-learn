@@ -992,7 +992,7 @@ V4.1 sparse attention、Indexer、Engram 和 ViT 有专门模块。模型主路�
 
 **buffer 之后的源码。** 先用 `transform_weights_for_mega_moe()` 对 L1 gate/up 做八行交错，并转换 L1/L2 packed scale；转换结果由各层保存。每轮填入输入与路由、提供 `y[T,H]`，`fp8_fp4_mega_moe()` 再将参数交给 C++。host 建立 TMA descriptor、选择 tile 与 kernel 模板；设备内的 scheduler、loader、MMA、epilogue 消费任务，执行 BF16 舍入 → clamp → FP32 SwiGLU × route weight → G32 FP8 → down → BF16 贡献 → FP32 combine。
 
-[继续阅读：MegaMoE 源码导读——权重布局、前向入口、host launch、调度与 epilogue](mega-moe-source-guide.html)。导读含调用链、行重排图和对应计算公式，可交互查看 scale 行号映射。
+[继续阅读：MegaMoE 源码导读——权重布局、前向入口、host launch、调度与 epilogue](../reference/mega-moe-source-guide.html)。导读含调用链、行重排图和对应计算公式，可交互查看 scale 行号映射。
 
 <!-- mega-source-guide-end -->
 
@@ -1459,7 +1459,7 @@ RowParallelLinear 在 FP32 做输出 all-reduce；参考 MoE 用 FP32 累加本�
 
 #### 11.13.1 先把算子放回模型
 
-![vLLM DeepSeek V4 主干与Attention算子路径](vllm-v4-operators-map.svg)
+![vLLM DeepSeek V4 主干与Attention算子路径](../assets/vllm-v4-operators-map.svg)
 
 **读图。** 首层先把embedding作为重复C路残差的来源；mHC pre收缩并融合子层输入Norm。Attention输出经post/pre进入MoE；MoE结果携带residual/mix返回，交给下一层开头回写。最后一层独立post，然后hc_head收束、最终Norm，compute_logits再投词表。图中每个框可能包含多个kernel，也可能与相邻步骤部分融合。
 
@@ -1582,7 +1582,7 @@ mHC 中 residual 为 BF16，系数/关键统计为 FP32，prenorm 可用 TF32 GE
 | 普通FusedMoE专家 | `MoERunner` / `quant_method.apply` / `quant_method.apply_monolithic` | runner内生成gate logits，modular或monolithic kernel完成专家计算及通信。 | 非mega家族；expert_dtype fp4→MXFP4，显式NVFP4 override→ModelOpt；fp8→FP8方法。 | [源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/model_executor/layers/fused_moe/runner/moe_runner.py#L865) |
 | 共享专家MLP | `gate_up_proj` / `SiluAndMulWithClamp` / `SiluAndMul` / `down_proj` | D→2SI→SwiGLU→SI→D，再与routed输出相加。 | 独立共享路径；原生MegaMoE满足完整资格时可融合shared，FI使用独立shared。 | [源码](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185) |
 
-路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见[源码导读](mega-moe-source-guide.html)。
+路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见[源码导读](../reference/mega-moe-source-guide.html)。
 
 ##### [输出] 主干收束、LM Head 与采样
 

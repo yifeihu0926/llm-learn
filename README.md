@@ -1,40 +1,36 @@
-# DS 学习手册
+# 学习资料库
 
-以 **V4 Flash** 建立一条完整计算主线，再比较 **V4 Pro / V4.1 Flash**。新版将共同机制合并、统一张量符号，并把动画放进对应章节。
+按主题归档的研究资料、技术手册、计算动画与个人笔记。
 
 ## 从这里开始
 
-- **[在线阅读正文](ds-handbook.md)**：按顺序编排的 11 章 Markdown。
-- **[下载交互手册](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/ds-handbook.html)**：单文件 HTML，下载后双击打开；8 组交互计算可离线播放，不含视频。
-- [个人工作笔记](notes/)：与模型手册分开保存。
+| 主题 | 入口 | 内容 |
+|---|---|---|
+| DeepSeek | [主题目录](deepseek/README.md) · [当前手册正文](deepseek/ds-handbook.md) | V4 / V4.1、计算主线、源码参考与历史资料 |
+| CUDA 算子 | [卷积融合专题](cuda/conv-fusion/README.md) | Conv + Bias + Residual + Activation，数学定义与 kernel 动画 |
+| 个人笔记 | [工作笔记](notes/) | 独立保存的日常记录 |
+| 第三方许可 | [组件说明](licenses/THIRD-PARTY-NOTICES.md) | 字体和公式组件许可 |
 
-## CUDA 卷积融合算子
+## 目录结构
 
-- **[在线阅读调研与数学定义](conv-fusion.md)**：Conv + Bias + Residual + Activation 的语义、implicit GEMM、kernel 计算、cuDNN/CUTLASS 路线和验证方法。
-- **[下载完整交互阅读版](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion.html)**：正文、公式和三种计算动画内嵌，下载后用浏览器离线打开。
-- [独立计算动画](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/conv-fusion-animation.html)：滑窗乘加 → 矩阵映射 → CUDA tile 与融合 epilogue；支持播放、暂停、单步和进度拖动。
+```text
+deepseek/
+  ds-handbook.md / .html    当前学习主线
+  reference/                MegaMoE 源码、vLLM 算子参考
+  assets/                   当前手册配图
+  archive/                  历史模型文档、分析、动画与配图
+cuda/
+  conv-fusion/              卷积融合调研与计算动画
+notes/                      个人工作笔记
+licenses/                   第三方组件说明与许可
+```
 
-整理日期：2026-10-15。面向 NVIDIA GPU / CUDA；动画为小整数教学模型，尚无生产 CUDA kernel 或 GPU 性能实测。
+## 离线阅读与动画
 
-## 新版框架
+- [下载 DeepSeek 交互手册](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/deepseek/ds-handbook.html)
+- [下载卷积融合完整交互版](https://github.com/yifeihu0926/llm-learn/raw/refs/heads/main/cuda/conv-fusion/conv-fusion.html)
 
-| 章节 | 要解决的问题 |
-|---|---|
-| 01 阅读地图与张量语言 | token 轴、特征轴和四种权重分别是什么？ |
-| 02 整体模型与 mHC | 一个完整 Block 怎样计算和回写残差？ |
-| 03 Attention | SWA、CSA、HCA 分别读取哪些 KV？ |
-| 04 Compressor | gate 怎样逐维压缩，短期状态保存多久？ |
-| 05 Indexer | 点积、头权重、因果 mask 和 top-k 怎样衔接？ |
-| 06 MoE | 查表路由、选择偏置、混合系数和专家怎样计算？ |
-| 07 MegaMoE | 路由张量怎样派发、执行，再按 token 合并？ |
-| 08 量化与缓存 | 逻辑 shape、数值精度与物理字节如何分别计算？ |
-| 09 V4.1 增量 | 跨层共享、CED、Engram、DSpark、视觉改变了什么？ |
-| 10 生成、服务与训练 | 模型前向怎样放进完整运行流程？ |
-| 11 源码与维护 | 固定源码在哪里，vLLM 实际调用哪些算子，怎样继续维护？ |
-
-版本：2026-10-14。每章包含适用范围、输入输出、计算步骤、示例与固定版本源码链接。动画为缩小后的教学数据，不代表 checkpoint 实际数值或 GPU 性能。
-
-第 11 章包含 **9 个模块、67 项 vLLM 实际算子与功能组**，附执行路径图、Prefill/Decode 差异、后端资格和固定源码行号；HTML 支持模块筛选与关键词检索。
+下载 HTML 后用浏览器打开；GitHub 的 HTML 文件预览只展示源码。单文件阅读版的正文和动画可离线运行，外部参考链接需要联网；旧版配图分离的材料建议下载整个仓库。
 
 ## 获取与更新
 
@@ -43,21 +39,4 @@ git clone https://github.com/yifeihu0926/llm-learn.git
 cd llm-learn
 ```
 
-已经克隆过：
-
-```bash
-git pull --ff-only
-```
-
-<details>
-<summary>历史资料与旧版入口（备查）</summary>
-
-旧版按不同时间和模型分别生成，存在重复和部分失效的本机链接。日常学习以新版手册为入口，旧版用于追踪历史分析，不继续平行维护多套正文。
-
-- [旧综合版](deepseek-v4-framework.html)
-- [旧 Flash](deepseek-v4-flash.html) · [旧 Pro](deepseek-v4-pro.html) · [旧 V4.1](deepseek-v41-flash.html)
-- [旧量化专题](deepseek-v4-quantization.html) · [旧 MegaMoE 动画](mega-moe-full.html)
-- [MegaMoE 源码专题](mega-moe-source-guide.html) · [vLLM 算子独立索引](vllm-deepseek-v4-operators.html)
-- [第三方组件许可](THIRD-PARTY-NOTICES.md)（旧版字体与公式组件；新版正文与交互不依赖这些组件）
-
-</details>
+已有本地副本使用 `git pull --ff-only`。归档日期：2026-10-15；原材料全部保留，旧路径的历史版本可通过 Git 提交记录查看。以后新增材料放入相应主题目录，并更新该目录的 README。

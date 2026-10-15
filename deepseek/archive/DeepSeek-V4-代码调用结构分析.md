@@ -1,14 +1,14 @@
 # DeepSeek-V4 代码调用结构分析
 
-> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-本机核验与更正.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
+> **2026-10-07 本机复核更新**：核心结构、参数/缓存口径与 CPU 边界用例见 [本机核验与更正](DeepSeek-V4-V4.1-%E6%9C%AC%E6%9C%BA%E6%A0%B8%E9%AA%8C%E4%B8%8E%E6%9B%B4%E6%AD%A3.md)。旧文中的 `[未检出]` 是写作时的检出状态；当前可用路径以新报告为准。GPU 性能、训练与完整模型质量未在本机复现。
 
 > 本文档分析 DeepSeek-V4 的**配置层 → 模型层 → 算子/内核层**完整调用结构，覆盖 4 个实现来源：
 > 官方参考实现、HuggingFace Transformers、vLLM、SGLang。
 > 所有结论均带 `文件:行号` 出处，可直接跳转核对。
 >
 > **延伸阅读**：
-> - [DeepSeek-V4-官方资料与训练后训练补充.md](DeepSeek-V4-官方资料与训练后训练补充.md) —— 官方来源核验、V4.1 公开训练摘要、V4 训练信息待核验清单
-> - [DeepSeek-V4.1-架构与代码分析.md](DeepSeek-V4.1-架构与代码分析.md) —— **V4.1（2026-09 开源）的架构增量**：
+> - [DeepSeek-V4-官方资料与训练后训练补充.md](DeepSeek-V4-%E5%AE%98%E6%96%B9%E8%B5%84%E6%96%99%E4%B8%8E%E8%AE%AD%E7%BB%83%E5%90%8E%E8%AE%AD%E7%BB%83%E8%A1%A5%E5%85%85.md) —— 官方来源核验、V4.1 公开训练摘要、V4 训练信息待核验清单
+> - [DeepSeek-V4.1-架构与代码分析.md](DeepSeek-V4.1-%E6%9E%B6%E6%9E%84%E4%B8%8E%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90.md) —— **V4.1（2026-09 开源）的架构增量**：
 >   CED 编码器-解码器、CSA2 跨层共享、Engram 条件记忆、DSpark 投机解码、视觉塔
 
 ---
@@ -21,8 +21,8 @@
 |---|---|---|---|
 | 官方参考实现 + 配置 | HuggingFace `deepseek-ai/DeepSeek-V4-Flash`、`DeepSeek-V4-Pro`、`DeepSeek-V4-Pro-Base` 的 `config.json` 与 `inference/*.py` | main 分支（2026-10-02 抓取） | [configs/](../configs/) |
 | Transformers | 本机已安装的 `transformers` | 见第 3 节 | [models/deepseek_v4/]([本地源码路径]) |
-| vLLM | `git clone --depth 1 --filter=blob:none --sparse` | `c91dccc08044b1269f351ceec13070fe8f075e10`（2026-10-02） | [repos/vllm/](../repos/vllm/) |
-| SGLang | 同上 | `bb9a820f09f97480bfc6d07564fb2b691b8857a3`（2026-10-02） | [repos/sglang/](../repos/sglang/) |
+| vLLM | `git clone --depth 1 --filter=blob:none --sparse` | `c91dccc08044b1269f351ceec13070fe8f075e10`（2026-10-02） | [repos/vllm/](https://github.com/vllm-project/vllm/tree/c91dccc08044b1269f351ceec13070fe8f075e10) |
+| SGLang | 同上 | `bb9a820f09f97480bfc6d07564fb2b691b8857a3`（2026-10-02） | [repos/sglang/](https://github.com/sgl-project/sglang/tree/bb9a820f09f97480bfc6d07564fb2b691b8857a3) |
 
 ### 0.1 权重下载说明
 
@@ -50,13 +50,13 @@ HuggingFace 侧只抓 `config.json` / `generation_config.json` / `inference/*.py
 | 文件 | 大小 | 说明 |
 |---|---|---|
 | [Flash_config.json](../configs/Flash_config.json) | 1.7 KB | Flash 版 HF 配置（`architectures: DeepseekV4ForCausalLM`） |
-| [Flash_inference_config.json](../configs/Flash_inference_config.json) | 991 B | Flash 版官方推理脚本自用配置（字段名与 HF 版**不同**，见 §1.3） |
+| [Flash_inference_config.json](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/config.json) | 991 B | Flash 版官方推理脚本自用配置（字段名与 HF 版**不同**，见 §1.3） |
 | [Pro_config.json](../configs/Pro_config.json) | 1.8 KB | Pro 版 HF 配置 |
-| [Pro_inference_config.json](../configs/Pro_inference_config.json) | 1.1 KB | Pro 版官方推理脚本自用配置 |
+| [Pro_inference_config.json](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/blob/b5968e9190ef611bbf34a7229255be88a0e937c1/inference/config.json) | 1.1 KB | Pro 版官方推理脚本自用配置 |
 | [Pro-Base_config.json](../configs/Pro-Base_config.json) | 1.8 KB | Pro-Base 版 HF 配置 |
-| [official_inference/flash_model.py](../configs/official_inference/flash_model.py) | 38.6 KB | 官方模型定义（参考实现） |
-| [official_inference/flash_kernel.py](../configs/official_inference/flash_kernel.py) | 22.2 KB | 官方 Triton/CUDA 内核 |
-| [official_inference/flash_generate.py](../configs/official_inference/flash_generate.py) | 6.3 KB | 官方生成入口 |
+| [official_inference/flash_model.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py) | 38.6 KB | 官方模型定义（参考实现） |
+| [official_inference/flash_kernel.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/kernel.py) | 22.2 KB | 官方 Triton/CUDA 内核 |
+| [official_inference/flash_generate.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/generate.py) | 6.3 KB | 官方生成入口 |
 | [official_inference/flash_convert.py](../configs/official_inference/flash_convert.py) | 7.1 KB | 官方权重转换脚本 |
 
 > **重要事实**：Flash 与 Pro 的 `inference/model.py`、`inference/kernel.py` **完全相同**（MD5 分别为
@@ -221,7 +221,7 @@ self.compress_ratio = args.compress_ratios[layer_id]           # → compress_ra
 
 ## 2. 官方参考实现调用结构（`inference/model.py`）
 
-文件：[official_inference/flash_model.py](../configs/official_inference/flash_model.py)（827 行）+ [flash_kernel.py](../configs/official_inference/flash_kernel.py)
+文件：[official_inference/flash_model.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/model.py)（827 行）+ [flash_kernel.py](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d70770c6776ff598c94bb586a859a38244f1/inference/kernel.py)
 
 这是**唯一权威的架构定义**——vLLM/SGLang 的适配都是对它的工程化重写。
 
@@ -609,7 +609,7 @@ DeepseekV4CSACache(DeepseekV4HCACache)                           modular:225
 
 ## 4. vLLM 适配调用结构
 
-代码根目录：[repos/vllm/](../repos/vllm/)，commit `c91dccc08044b1269f351ceec13070fe8f075e10`
+代码根目录：[repos/vllm/](https://github.com/vllm-project/vllm/tree/c91dccc08044b1269f351ceec13070fe8f075e10)，commit `c91dccc08044b1269f351ceec13070fe8f075e10`
 （vLLM 把 V4 实现放在 **非传统路径** `vllm/models/deepseek_v4/`，而不是 `vllm/model_executor/models/`）
 
 ### 4.1 注册与平台分派链（从模型名字到实现类）
@@ -808,7 +808,7 @@ self.mm_prefix_span_leading_pad_modulus = 4 if vision_n_layers > 0 else 0
 
 ## 5. SGLang 适配调用结构
 
-代码根目录：[repos/sglang/](../repos/sglang/)，commit `bb9a820f09f97480bfc6d07564fb2b691b8857a3`
+代码根目录：[repos/sglang/](https://github.com/sgl-project/sglang/tree/bb9a820f09f97480bfc6d07564fb2b691b8857a3)，commit `bb9a820f09f97480bfc6d07564fb2b691b8857a3`
 
 ### 5.1 注册机制：`EntryClass` 自动发现（与 vLLM 的显式 dict 不同）
 
@@ -1107,7 +1107,7 @@ SGLang 的 V4 支持与 vLLM 差异很大，有几点**容易误判**，必须�
 - `len(compress_ratios) == num_hidden_layers + num_nextn_predict_layers`，**末项属于 MTP 层且被官方实现真实读取**
   （`MTPBlock(n_layers+0)` → `Block` → `Attention` → `compress_ratios[43]`）。
   **三方独立验证**：V4-Flash `43+1=44`、V4-Pro `61+1=62`、
-  [V4.1-Flash](DeepSeek-V4.1-架构与代码分析.md) `40+3=43`；
+  [V4.1-Flash](DeepSeek-V4.1-%E6%9E%B6%E6%9E%84%E4%B8%8E%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90.md) `40+3=43`；
   V4.1 官方代码注释亦明确 *"one entry per layer, MTP layers included"*（`inference_model.py:80-81`）。
 - Flash：层 0/1 无压缩；层 2..42 在 ratio 4 与 128 间交替；层 43（MTP）无压缩。
 - Pro：层 0/1 为 ratio 128；层 2..60 在 4 与 128 间交替；层 61（MTP）无压缩。
@@ -1163,14 +1163,14 @@ SGLang 的 V4 支持与 vLLM 差异很大，有几点**容易误判**，必须�
 
 > `parts/` 下的报告是**逐符号、逐行号**的原始分析，
 > 本文档是其汇总与交叉验证；需要更细的引用时直接查阅对应 part 文件。
-> 若只想先建立整体印象，建议从 [复盘与流程图](DeepSeek-V4-复盘与流程图.html) 入手。
+> 若只想先建立整体印象，建议从 [复盘与流程图](DeepSeek-V4-%E5%A4%8D%E7%9B%98%E4%B8%8E%E6%B5%81%E7%A8%8B%E5%9B%BE.html) 入手。
 
 ### 7.1.1 相关分析文档
 
-- [DeepSeek-V4 张量数据流详解](DeepSeek-V4-张量数据流详解.md)：端到端张量形状、KV cache 布局与字节估算。
-- [DeepSeek-V4.1-Flash 架构与代码分析](DeepSeek-V4.1-架构与代码分析.md)：V4 → V4.1 的增量项、压缩 KV 与索引器。
-- [DeepSeek-V4 / V4.1 官方资料核验与训练后训练补充](DeepSeek-V4-官方资料与训练后训练补充.md)：官方材料交叉核验与使用边界。
-- [vLLM 与 SGLang Server 设计哲学对比](DeepSeek-vLLM与SGLang-Server设计哲学对比.md)：serving 架构、调度/KV 缓存与多 GPU 平台适配。
+- [DeepSeek-V4 张量数据流详解](DeepSeek-V4-%E5%BC%A0%E9%87%8F%E6%95%B0%E6%8D%AE%E6%B5%81%E8%AF%A6%E8%A7%A3.md)：端到端张量形状、KV cache 布局与字节估算。
+- [DeepSeek-V4.1-Flash 架构与代码分析](DeepSeek-V4.1-%E6%9E%B6%E6%9E%84%E4%B8%8E%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90.md)：V4 → V4.1 的增量项、压缩 KV 与索引器。
+- [DeepSeek-V4 / V4.1 官方资料核验与训练后训练补充](DeepSeek-V4-%E5%AE%98%E6%96%B9%E8%B5%84%E6%96%99%E4%B8%8E%E8%AE%AD%E7%BB%83%E5%90%8E%E8%AE%AD%E7%BB%83%E8%A1%A5%E5%85%85.md)：官方材料交叉核验与使用边界。
+- [vLLM 与 SGLang Server 设计哲学对比](DeepSeek-vLLM%E4%B8%8ESGLang-Server%E8%AE%BE%E8%AE%A1%E5%93%B2%E5%AD%A6%E5%AF%B9%E6%AF%94.md)：serving 架构、调度/KV 缓存与多 GPU 平台适配。
 
 ### 7.2 复现命令
 

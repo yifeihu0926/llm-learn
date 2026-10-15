@@ -981,7 +981,7 @@ SWA：40 × 128 × 512 × 2 = 5 MiB/序列
 </table>
 <h3 id="section-46">8.6 MegaMoE：MoE 在设备上的执行后端</h3><aside id="mega-source-guide-panel" style="border:1px solid #30303c;border-left:2px solid #65c9e0;background:#08080e;padding:20px 25px;margin:25px 0;font-size:14px;line-height:1.9"><!-- mega-source-guide-start -->
 <p><strong>buffer 之后的源码。</strong> 先用 <code>transform_weights_for_mega_moe()</code> 对 L1 gate/up 做八行交错，并转换 L1/L2 packed scale；转换结果由各层保存。每轮填入输入与路由、提供 <code>y[T,H]</code>，<code>fp8_fp4_mega_moe()</code> 再将参数交给 C++。host 建立 TMA descriptor、选择 tile 与 kernel 模板；设备内的 scheduler、loader、MMA、epilogue 消费任务，执行 BF16 舍入 → clamp → FP32 SwiGLU × route weight → G32 FP8 → down → BF16 贡献 → FP32 combine。</p>
-<p><a href="mega-moe-source-guide.html">继续阅读：MegaMoE 源码导读——权重布局、前向入口、host launch、调度与 epilogue</a>。导读含调用链、行重排图和对应计算公式，可交互查看 scale 行号映射。</p>
+<p><a href="../reference/mega-moe-source-guide.html">继续阅读：MegaMoE 源码导读——权重布局、前向入口、host launch、调度与 epilogue</a>。导读含调用链、行重排图和对应计算公式，可交互查看 scale 行号映射。</p>
 <!-- mega-source-guide-end -->
 </aside><aside id="vllm-v4-operators-panel" style="border:1px solid #30303c;border-left:2px solid #78d6b1;background:#08080e;padding:20px 25px;margin:25px 0;font-size:14px;line-height:1.9"><!-- vllm-v4-ops-start -->
 <p><strong>vLLM 实际算子清单。</strong> 本手册第 11.13 节沿 NVIDIA V4 前向整理通用量化 GEMM、mHC、Attention、Compressor、Indexer、MoE、输出与采样、并行通信及可选视觉/draft 路径，包含实际函数、数据作用、启用条件和源码行号。</p>
@@ -1955,7 +1955,7 @@ next_id = argmax_v(p_v / e_v)
 <td><a href="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185" title="https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L185">L185</a></td>
 </tr>
 </tbody>
-</table><p>路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见<a href="mega-moe-source-guide.html">源码导读</a>。</p></section><section class="operator-group" data-module="输出"><h5 id="manual-vllm-ops-section-8">[输出] 主干收束、LM Head 与采样</h5><p>主模型forward产hidden；compute_logits和Sampler属于之后的独立调用。runner通常只选择需要出token的hidden行投词表。</p><table data-operator-table="true">
+</table><p>路由专家的理想计算为 a=SiLU(xW_gateᵀ)⊙(xW_upᵀ)，贡献为 w·aW_downᵀ。原生MegaMoE把w放在L2前，并在加权后量化中间激活；最终combine不再乘w。详细流程见<a href="../reference/mega-moe-source-guide.html">源码导读</a>。</p></section><section class="operator-group" data-module="输出"><h5 id="manual-vllm-ops-section-8">[输出] 主干收束、LM Head 与采样</h5><p>主模型forward产hidden；compute_logits和Sampler属于之后的独立调用。runner通常只选择需要出token的hidden行投词表。</p><table data-operator-table="true">
 <thead>
 <tr>
 <th>算子组</th>

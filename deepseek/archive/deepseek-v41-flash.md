@@ -303,7 +303,7 @@ V4.1 没有额外独立的 `hc_head` 投影或 head 混合参数；最终收缩�
 
 主干另外在层 37、38、39 的 **Attention 入口之前**，对四路取均值并收集 3 份 5120 维特征，供 DSpark 草稿分支使用。这不是主词表输出，也不是每层预测 token；辅助草稿分支与普通主干输出具有各自的调用路径。
 
-本章对应本地实现入口：[`Transformer.forward`]([本地源码路径])、[`Block`]([本地源码路径])、[`Compressor / Indexer`]([本地源码路径])、[`Attention`]([本地源码路径])、[`Gate / Expert / MoE`]([本地源码路径])、[`ParallelHead`]([本地源码路径])、[`sparse_attn / Sinkhorn`]([本地源码路径])。
+本章对应本地实现入口：[`Transformer.forward`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1239)、[`Block`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L907)、[`Compressor / Indexer`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L430)、[`Attention`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L613)、[`Gate / Expert / MoE`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L795)、[`ParallelHead`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L997)、[`sparse_attn / Sinkhorn`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py#L311)。
 ## 3. CED 与长输入执行
 
 ### 3.1 CED 的前后半部分
@@ -397,7 +397,7 @@ $$
 
 两层合计每个文本 token 名义读取 48 行，即 12,672 B 的 FP8 数据和 scale；重复模式、缓存命中与批内复用会影响实际读取量。大表提供容量，有限行数的访问控制每次前向的工作量。
 
-源码：[token 归一化与哈希状态]([本地源码路径])、[n-gram 整数运算]([本地源码路径])、[分片查表与反量化]([本地源码路径])、[记忆投影与门控]([本地源码路径])。
+源码：[token 归一化与哈希状态](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/engram.py#L17)、[n-gram 整数运算](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/engram.py#L160)、[分片查表与反量化](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L296)、[记忆投影与门控](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L328)。
 
 ## 5. 视觉输入：像素、ViT、空间拼接与语言序列
 
@@ -475,7 +475,7 @@ $$
 
 图像段必须完整包含在首次 `start_pos=0` 的 prefill 内。替换完成后，文本和图像 embedding 一起扩展为 `[b,s,4,5120]`。图像 mask 在 Engram 中切断 n-gram 并关闭记忆注入，在 MoE 中选择视觉路由 bias；它不会跳过语言 Attention 或 MoE。
 
-源码：[图像尺寸与像素预处理]([本地源码路径])、[ViT 位置编码与 Block]([本地源码路径])、[Aligner]([本地源码路径])、[图像特征与标记合并]([本地源码路径])。
+源码：[图像尺寸与像素预处理](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/image_processor.py#L101)、[ViT 位置编码与 Block](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/vision.py#L9)、[Aligner](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/vision.py#L106)、[图像特征与标记合并](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1228)。
 
 ## 6. DSpark：草稿 Block、Markov 修正与输出控制
 
@@ -553,7 +553,7 @@ $$
 
 普通生成循环还执行 prompt mask 的 `where` 覆盖、token 写入、EOS 比较、finished mask 的逻辑更新和 `all()` 停止。DSpark 的 `forward_spec` 返回草稿前向结果；完整推测解码还需要 serving 组织主模型校验、接受/拒绝、状态回滚及补采样。官方参考生成脚本只调用普通 `forward`，没有接入这套推测解码循环。
 
-源码：[特征捕获与 forward_spec]([本地源码路径])、[DSpark Attention 与位置表]([本地源码路径])、[Markov 与 Confidence Heads]([本地源码路径])、[草稿初始化与输出]([本地源码路径])、[采样]([本地源码路径])、[生成控制]([本地源码路径])。
+源码：[特征捕获与 forward_spec](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1264)、[DSpark Attention 与位置表](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1021)、[Markov 与 Confidence Heads](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1077)、[草稿初始化与输出](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1128)、[采样](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py#L1285)、[生成控制](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/generate.py#L64)。
 ## 7. 公共算子与执行内核
 
 本章沿 DeepSeek V4.1 Flash 的前向路径解释归一化、四路混合、位置处理、量化矩阵乘法、注意力聚合和状态更新。这里的“算子”指具有明确输入输出和计算作用的逻辑步骤；设备执行时可以把多个步骤融合在同一个 kernel 中。`reshape`、`gather` 等布局或索引步骤结合所属模块说明。
@@ -576,7 +576,7 @@ y = γ × x × r
 
 `view/reshape/unflatten` 将投影结果解释成 head、group 或四路维度，`transpose` 调整维度次序，`flatten/concat/split` 合并或拆分特征。它们改变布局或表示方式；真正的特征混合由投影和加权计算完成。非连续存储在 `contiguous` 时可能发生复制。`cast` 则改变数值精度，应与纯布局变化区分。
 
-源码入口：[模型中的 RMSNorm、Attention.forward 与 Block]([本地源码路径])。
+源码入口：[模型中的 RMSNorm、Attention.forward 与 Block](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)。
 
 ### 7.2 mHC：系数投影、Sinkhorn、收缩与回写
 
@@ -613,7 +613,7 @@ repeat 19 times:
 
 配置中的 20 轮和稳定项使 B 的行列和接近 1；有限精度下不保证严格等于 1。RMS 投影、sigmoid、行列归一化和加权和是四个不同步骤，内核将部分步骤融合并不会改变其逻辑关系。
 
-源码入口：[模型中的 hc_mixes/hc_pre/hc_post 与 Block.forward]([本地源码路径])、[hc_split_sinkhorn 封装与内核]([本地源码路径])。
+源码入口：[模型中的 hc_mixes/hc_pre/hc_post 与 Block.forward](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[hc_split_sinkhorn 封装与内核](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py)。
 
 ### 7.3 RoPE、YaRN、逆旋转与索引维度处理
 
@@ -639,7 +639,7 @@ ramp 的两端由 `beta_fast=32`、`beta_slow=1` 与原长度算出。压缩槽 
 
 本模型的主注意力和 Indexer 都不做 Hadamard。索引 Q/K 先 RoPE 后执行 FP4 模拟量化。
 
-源码入口：[precompute_freqs_cis、apply_rotary_emb 与 Attention 的位置处理]([本地源码路径])。
+源码入口：[precompute_freqs_cis、apply_rotary_emb 与 Attention 的位置处理](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)。
 
 ### 7.4 FP8/FP4、scale 与量化模拟
 
@@ -662,7 +662,7 @@ FP8 amax 至少取 `1e−4`。未启用 scale rounding 时 scale 直接为 amax/
 
 `act_quant(..., inplace=True)` 或 `fp4_act_quant(..., inplace=True)` 在参考路径执行“量化 → 反量化 → 回写输入”，缓存 tensor 仍是 BF16。这种模拟对应低比特数值，不等于将该缓存的物理存储直接变成 FP8/FP4。实际低比特 Linear 权重和 GEMM 输入则有独立量化数组与 scale。
 
-源码入口：[Linear 的权重格式与 Attention/Indexer 中的量化调用]([本地源码路径])、[act_quant、fp4_act_quant 及量化内核]([本地源码路径])。
+源码入口：[Linear 的权重格式与 Attention/Indexer 中的量化调用](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[act_quant、fp4_act_quant 及量化内核](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py)。
 
 ### 7.5 Linear 与带 scale 的矩阵乘法
 
@@ -690,7 +690,7 @@ FP8 权重的 scale 共享于 Q 个输出行和 Q 个 K 值组成的 tile。FP4 
 
 参考量化 GEMM 采用 FP32 累加和 scale 补偿，再写出 BF16。虽然 Linear 的数学公式相同，低比特舍入、分块尺度和累加精度会影响有限精度结果。
 
-源码入口：[linear、Linear、ColumnParallelLinear 与 RowParallelLinear]([本地源码路径])、[fp8_gemm、fp4_gemm 与内核]([本地源码路径])。
+源码入口：[linear、Linear、ColumnParallelLinear 与 RowParallelLinear](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[fp8_gemm、fp4_gemm 与内核](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py)。
 
 ### 7.6 稀疏 gather、online softmax 与 attention sink
 
@@ -717,7 +717,7 @@ r_new = exp(m − m_new) × r + Σ exp(score − m_new) × KV
 
 主乘法及运行累加包含 BF16 输入与 FP32 accumulator。online softmax 是上述注意力的分块执行方式，算完得到 `[b,s,H,512]`，随后逆 RoPE 和 O 投影。本地 head 不足 16 时封装临时补零到 16，再裁去辅助 head；padding 是执行布局选择，不改变模型头数。
 
-源码入口：[Attention.forward 对 sparse_attn 的调用]([本地源码路径])、[sparse_attn 封装与 sparse_attn_kernel]([本地源码路径])。
+源码入口：[Attention.forward 对 sparse_attn 的调用](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[sparse_attn 封装与 sparse_attn_kernel](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py)。
 
 ### 7.7 分组低秩 O 投影与最终输出头
 
@@ -743,7 +743,7 @@ logits = W_vocab × RMSNorm(h_final)    [b,s,V]
 
 每个位置都有对应的逻辑词表投影；公开入口实际返回哪些位置，以本模型前面的输出头说明为准。普通生成使用最后位置的 logits，词表分片时各卡计算自己的区间，再 gather 合并。
 
-源码入口：[Attention 的 grouped O、最终收缩、ParallelHead 与 Transformer.forward]([本地源码路径])。
+源码入口：[Attention 的 grouped O、最终收缩、ParallelHead 与 Transformer.forward](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)。
 
 ### 7.8 并行通信：分片输出如何合并
 
@@ -760,7 +760,7 @@ logits = W_vocab × RMSNorm(h_final)    [b,s,V]
 
 以上是公开参考实现的通信路径。其 MoE 采用本地专家计算、结果 all-reduce 的写法；源码没有 `all_to_all`。生产 MegaMoE 的 token dispatch/combine、通信融合和调度属于专家执行章节，不能套成这份参考 forward 的实际调用。
 
-源码入口：[ParallelEmbedding、并行 Linear、Indexer、MoE 与 ParallelHead]([本地源码路径])。
+源码入口：[ParallelEmbedding、并行 Linear、Indexer、MoE 与 ParallelHead](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)。
 
 ### 7.9 缓存布局、状态更新与跨步一致性
 
@@ -781,7 +781,7 @@ logits = W_vocab × RMSNorm(h_final)    [b,s,V]
 
 `concat` 的 offset 随当前 KV 布局而变：prefill 的局部区域宽度是当前 chunk 长度，decode 的局部区域宽度是 128。它是 sparse gather 列表的物理偏移，不是 token 的 RoPE 位置。服务系统还可能使用分页缓存和更复杂调度；这里解释的是公开参考实现的连续数组、环形槽与共享 state。
 
-源码入口：[get_window_topk_idxs、Compressor、Indexer 与 Attention 的缓存读写]([本地源码路径])、[sparse_attn 的 int32 位置列表]([本地源码路径])。
+源码入口：[get_window_topk_idxs、Compressor、Indexer 与 Attention 的缓存读写](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[sparse_attn 的 int32 位置列表](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py)。
 ## 8. 参数、存储与缓存预算
 
 ### 8.1 参数容量与单步计算分开看
@@ -843,7 +843,7 @@ MoE router → topk_ids [T,6]、topk_weights [T,6]
 
 该 NVIDIA 模型路径要求 expert parallel，并检查 FP4 路由专家、sqrtsoftplus 与选中权重归一化等条件。它们是本文固定框架快照的后端约束；不同平台或其他后端可以采用不同执行路径，普通 MoE 数学结构仍成立。这里说明源码路径与约束，实际 GPU 性能需对应设备和运行配置测量。
 
-源码：[DeepseekV4MoE.forward]([本地源码路径])、[DeepseekV4MegaMoEExperts.forward]([本地源码路径])、[FlashInfer wrapper]([本地源码路径])。
+源码：[DeepseekV4MoE.forward](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L1038)、[DeepseekV4MegaMoEExperts.forward](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/model.py#L682)、[FlashInfer wrapper](https://github.com/vllm-project/vllm/blob/c91dccc08044b1269f351ceec13070fe8f075e10/vllm/models/deepseek_v4/nvidia/fi_moe.py#L314)。
 
 V4.1 在 vLLM 使用独立的 `DeepseekV41ForCausalLM` 多模态 wrapper 与 `DeepseekV41LLMForCausalLM` 主干；它复用 V4 NVIDIA MoE 组件。共享状态、Engram、DSpark 与视觉入口另由 V4.1 模块组织。SGLang 把 nested text/vision 配置规范化后进入含 V4.1 分支的 `DeepseekV4ForCausalLM`，配置类名称不能代替实际数据流。
 
@@ -992,21 +992,21 @@ Effort 条件影响推理长度和 token penalty，让模型在同一能力体�
 
 | 算子族 | 本文位置 | 本地入口 |
 |---|---|---|
-| Embedding、布局、RMSNorm、mHC、最终 Head | 第 1、2、7 章 | [主模型]([本地源码路径]) |
-| Q/KV、RoPE/YaRN、压缩/状态、Indexer/selector、稀疏 Attention、grouped O | 第 2、7 章 | [模型]([本地源码路径])、[内核]([本地源码路径]) |
-| Router、top-k、SwiGLU/clamp、专家合并与残差 | 第 2 章 | [Gate/Expert/MoE]([本地源码路径]) |
-| FP8/FP4 量化、scale、GEMM、online softmax、Sinkhorn | 第 7 章 | [Kernel]([本地源码路径]) |
-| 并行 collective、缓存 gather/copy/ring、mask/where | 第 2、7 章 | [模型与状态]([本地源码路径]) |
-| Engram 的 map、整数 hash、FP8 lookup、copysign gate | 第 4 章 | [Engram]([本地源码路径])、[模型]([本地源码路径]) |
-| 图像 resize/pad、patch、2D RoPE、双向 SDPA、SwiGLU、Unfold/GELU | 第 5 章 | [图像处理]([本地源码路径])、[Vision]([本地源码路径]) |
-| DSpark、Markov/confidence、采样、EOS/生成控制 | 第 6 章 | [模型]([本地源码路径])、[Generate]([本地源码路径]) |
-| MegaMoE、服务打包/调度、分页与前缀缓存、推测验证/回滚 | 第 9 章 | [vLLM]([本地源码路径])、[SGLang]([本地源码路径]) |
+| Embedding、布局、RMSNorm、mHC、最终 Head | 第 1、2、7 章 | [主模型](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py) |
+| Q/KV、RoPE/YaRN、压缩/状态、Indexer/selector、稀疏 Attention、grouped O | 第 2、7 章 | [模型](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[内核](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py) |
+| Router、top-k、SwiGLU/clamp、专家合并与残差 | 第 2 章 | [Gate/Expert/MoE](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py) |
+| FP8/FP4 量化、scale、GEMM、online softmax、Sinkhorn | 第 7 章 | [Kernel](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/kernel.py) |
+| 并行 collective、缓存 gather/copy/ring、mask/where | 第 2、7 章 | [模型与状态](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py) |
+| Engram 的 map、整数 hash、FP8 lookup、copysign gate | 第 4 章 | [Engram](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/engram.py)、[模型](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py) |
+| 图像 resize/pad、patch、2D RoPE、双向 SDPA、SwiGLU、Unfold/GELU | 第 5 章 | [图像处理](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/image_processor.py)、[Vision](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/vision.py) |
+| DSpark、Markov/confidence、采样、EOS/生成控制 | 第 6 章 | [模型](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/model.py)、[Generate](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/generate.py) |
+| MegaMoE、服务打包/调度、分页与前缀缓存、推测验证/回滚 | 第 9 章 | [vLLM](https://github.com/vllm-project/vllm/tree/c91dccc08044b1269f351ceec13070fe8f075e10/vllm)、[SGLang](https://github.com/sgl-project/sglang/tree/bb9a820f09f97480bfc6d07564fb2b691b8857a3/python/sglang/srt) |
 
 这里覆盖公开参考前向的逻辑算子及对应内核作用：输入、布局、投影、归一化、位置、选择、聚合、残差、状态、专家、量化、辅助预测、输出控制与通信。融合 kernel 内的线程分派和设备私有调度按执行方式解释。
 
 ### 11.2 配置、报告与固定框架版本
 
-配置：[本模型 inference_config]([本地源码路径])。 [V4.1 技术报告](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/main/DeepSeek_V41_Tech_Report.pdf)与[模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/main/README.md)提供训练和部署口径。
+配置：[本模型 inference_config](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/2cba9e42aa026125f3ed06c6d98c1db82f7ca027/inference/config.json)。 [V4.1 技术报告](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/main/DeepSeek_V41_Tech_Report.pdf)与[模型卡](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/main/README.md)提供训练和部署口径。
 
 | 框架 | 本文固定快照 |
 |---|---|
